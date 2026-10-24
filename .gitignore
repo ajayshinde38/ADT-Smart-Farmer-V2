@@ -1,0 +1,33 @@
+# Node / Frontend
+node_modules/
+.expo/
+dist/
+npm-debug.*
+
+# Python / Backend
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+venv/
+.env
+backend/.env
+*.env
+*.env.*
+!*.env.example
+
+# Local Storage & Backups
+local_storage/
+backups/
+scratch/
+
+# Model Weights & Temp Cache
+*.pth
+*.joblib
+*.tiff
+.DS_Store
+Thumbs.db
+
+# Private derived provider cache
+backend/.cache/

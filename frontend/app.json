@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "ADT Smart Farmer V2",
+    "slug": "adt-smart-farmer-v2",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#052e16",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "org.aiadt.smartfarmer.v2"
+    },
+    "android": {
+      "package": "org.aiadt.smartfarmer.v2",
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "extra": {
+      "apiBaseUrl": "http://127.0.0.1:8000/api/v1"
+    }
+  }
+}

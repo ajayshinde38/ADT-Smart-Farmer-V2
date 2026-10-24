@@ -1,0 +1,12 @@
+2026-10-24 21:13:00,041 - adt_smart_farmer_v2 - INFO - Serving built Expo web frontend from ..\frontend\dist
+INFO:     Started server process [33048]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8001 (Press CTRL+C to quit)
+2026-10-24 21:13:10,187 - app.farmers.service - INFO - Synchronized 25 canonical farmers from Supabase Cloud.
+2026-10-24 21:13:10,895 - app.modules.weather.service - INFO - Open-Meteo commercial forecast retrieved successfully for (19.209693, 77.113003)
+2026-10-24 21:14:00,775 - app.modules.weather.service - INFO - Open-Meteo commercial forecast retrieved successfully for (19.187154, 77.181309)
+2026-10-24 21:15:42,361 - app.farmers.service - INFO - Synchronized 25 canonical farmers from Supabase Cloud.
+2026-10-24 21:16:31,636 - app.modules.pest_disease.unet_classifier - INFO - Loaded UNet weights from C:\Users\ADT AI\Desktop\ADT-Smart-Farmer-V2\backend\app\modules\pest_disease\models\best_unet.pth
+2026-10-24 21:16:43,970 - app.farmers.service - INFO - Synchronized 25 canonical farmers from Supabase Cloud.
+2026-10-24 21:37:22,023 - app.farmers.service - INFO - Synchronized 25 canonical farmers from Supabase Cloud.
