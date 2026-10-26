@@ -51,7 +51,7 @@ export const createNativeGISDocument=(origin:string)=>{
    let url;
    try{
      url=new URL(info.overlay_urls[key],origin);
-     const expected='/api/v1/gis/plot/'+data.farmId+'/raster/'+key+'.png';
+     const expected=(data.access==='admin'?'/api/v1/admin/farms/':'/api/v1/gis/plot/')+data.farmId+'/raster/'+key+'.png';
      if(url.origin!==origin||url.pathname!==expected||url.search||url.hash||!['ndvi','ndre','evi','msavi','ndmi','ndwi'].includes(key))throw new Error('Invalid raster path');
    }catch(_){tell(words('Crop overlay unavailable.','रंगीत नकाशा उपलब्ध नाही.'));return;}
    abort=new AbortController();

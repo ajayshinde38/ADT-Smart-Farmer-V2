@@ -37,3 +37,6 @@ class DiseaseDetectionResponse(BaseModel):
     overlay_data_url: Optional[str] = None
     image_url: Optional[str] = None
     field_context: Optional[Dict[str, Any]] = None
+    record_id: Optional[UUID] = None
+    record_saved: bool = False
+    history_note: Optional[str] = None

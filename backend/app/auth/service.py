@@ -1,4 +1,5 @@
 import logging
+import httpx
 from typing import List, Optional, Dict, Any
 from uuid import UUID
 from datetime import datetime, timezone, timedelta
@@ -28,12 +29,24 @@ def send_otp_challenge(phone: str) -> Dict[str, Any]:
     # In development mode, register the test OTP challenge
     is_dev = (settings.ENVIRONMENT == "development" and settings.DEBUG is True)
     
+    if not is_dev:
+        try:
+            key=settings.SUPABASE_PUBLISHABLE_KEY or settings.SUPABASE_KEY
+            if not key or not settings.SUPABASE_URL.startswith('https://'):
+                return {'success':False,'message':'SMS authentication is not configured.'}
+            response=httpx.post(settings.SUPABASE_URL.rstrip('/')+'/auth/v1/otp',headers={'apikey':key},
+                json={'phone':'+91'+clean_phone,'create_user':False},timeout=12)
+            if response.status_code not in (200,201):
+                return {'success':False,'message':'SMS verification could not be sent. Contact ADT support.'}
+        except httpx.HTTPError:
+            return {'success':False,'message':'SMS identity service is unavailable.'}
     _OTP_STORE[clean_phone] = {
         "otp": DEFAULT_DEV_OTP if is_dev else None,
+        'provider':'development' if is_dev else 'supabase',
         "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10)
     }
 
-    logger.info(f"Generated verification OTP challenge for {clean_phone} (Dev mode: {is_dev})")
+    logger.info('Verification challenge generated (development=%s)',is_dev)
     
     hint = "Use test OTP '123456' in development mode" if is_dev else "SMS verification code dispatched via carrier"
     return {
@@ -56,10 +69,17 @@ def verify_otp_and_authenticate(phone: str, otp: str) -> AuthResponse:
     is_dev = (settings.ENVIRONMENT == "development" and settings.DEBUG is True)
 
     is_valid_otp = False
+    if not is_dev and challenge and challenge.get('provider')=='supabase' and datetime.now(timezone.utc)<=challenge['expires_at']:
+        try:
+            response=httpx.post(settings.SUPABASE_URL.rstrip('/')+'/auth/v1/verify',headers={'apikey':settings.SUPABASE_PUBLISHABLE_KEY or settings.SUPABASE_KEY},json={'phone':'+91'+clean_phone,'token':otp,'type':'sms'},timeout=12)
+            user=response.json().get('user',{}) if response.status_code==200 else {}
+            is_valid_otp=str(user.get('phone','')).replace('+91','')==clean_phone
+        except (httpx.HTTPError,ValueError):
+            pass
     # Only allow DEFAULT_DEV_OTP if explicitly in local development environment
     if is_dev and otp == DEFAULT_DEV_OTP:
         is_valid_otp = True
-    elif challenge and challenge.get("otp") and challenge.get("otp") == otp:
+    elif is_dev and challenge and challenge.get("otp") and challenge.get("otp") == otp:
         if datetime.now(timezone.utc) <= challenge.get("expires_at", datetime.min.replace(tzinfo=timezone.utc)):
             is_valid_otp = True
 
@@ -129,10 +149,12 @@ def select_profile(phone: str, farmer_id: UUID, verification_token: Optional[str
     clean_phone = phone.strip().replace(" ", "").replace("+91", "")
 
     # If verification_token is provided, ensure it matches phone_verified
+    if not verification_token:
+        return None
     if verification_token:
         payload = decode_access_token(verification_token)
         if not payload or payload.get("sub") != f"phone_verified:{clean_phone}":
-            logger.warning(f"Invalid verification token for profile selection on {clean_phone}")
+            logger.warning('Invalid household verification token')
             return None
 
     farmers = farmer_service.get_farmers_by_phone(clean_phone)
@@ -144,7 +166,7 @@ def select_profile(phone: str, farmer_id: UUID, verification_token: Optional[str
             
     if not target:
         # Prevent impersonation: target farmer does NOT belong to this mobile number!
-        logger.warning(f"Impersonation attempt blocked: farmer {farmer_id} does not belong to {clean_phone}")
+        logger.warning('Unauthorized household profile selection blocked')
         return None
         
     selected = FarmerProfileSummary(

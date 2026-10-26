@@ -16,8 +16,13 @@ export interface FarmerProfile {
   mobile: string;
   prn?: string;
   village?: string;
+  address?: string;
+  taluka?: string;
+  district?: string;
   farm_id?: string;
   farm_area_acres?: number;
+  crop_name?: string;
+  crop_variety?: string;
 }
 
 export interface AuthState {
@@ -140,50 +145,18 @@ export interface WeatherData {
 }
 
 export interface AdvisoryData {
-  farm_id: string;
-  area_acres: number;
-  soil_status: {
-    ph: number;
-    ec: number;
-    oc: number;
-    nitrogen_kg_ha: number;
-    phosphorus_kg_ha: number;
-    potassium_kg_ha: number;
-    organic_manure_ton_ha: number;
-    organic_manure_ton_acre: number;
-  };
-  rdf: {
-    expected_yield_ton_ha: number;
-    rdf_n_kg_acre: number;
-    rdf_p_kg_acre: number;
-    rdf_k_kg_acre: number;
-    basal_dose: {
-      fertilizer_selected: string;
-      basal_n_kg_acre: number;
-      basal_p_kg_acre: number;
-      basal_k_kg_acre: number;
-    };
-    final_fertigation_n_kg_acre: number;
-    final_fertigation_p_kg_acre: number;
-    final_fertigation_k_kg_acre: number;
-  };
-  weekly_schedules: Array<{
-    stage_name: string;
-    days_range: string;
-    duration_days: number;
-    target_n_kg_acre: number;
-    target_p_kg_acre: number;
-    target_k_kg_acre: number;
-    fertilizers_recommended: Array<{
-      product: string;
-      total_kg_acre: number;
-      daily_dose_g: number;
-    }>;
-    dose_per_day: string;
-  }>;
+  farm_id:string;farmer_id:string;farmer_name:string;area_acres:number;
+  soil_status:{ph:number|null;ec:number|null;oc:number|null;nitrogen_kg_ha:number|null;phosphorus_kg_ha:number|null;potassium_kg_ha:number|null;organic_manure_ton_ha:number|null;organic_manure_ton_acre:number|null};
+  rdf:null|{expected_yield_ton_ha:number;rdf_n_kg_ha:number;rdf_p_kg_ha:number;rdf_k_kg_ha:number;rdf_n_kg_acre:number;rdf_p_kg_acre:number;rdf_k_kg_acre:number;basal_dose:unknown;final_fertigation_n_kg_acre:number|null;final_fertigation_p_kg_acre:number|null;final_fertigation_k_kg_acre:number|null};
+  weekly_schedules:unknown[];
+  planning:{generated_at:string;status:string;missing_inputs:string[];crop:FieldContext['crop'];target_yield_ton_ha:number;target_source:string;nutrient_totals_kg:Record<string,number>|null;assumptions:string[];product_prescription_available:boolean;application_history_available:boolean;reference_stage_splits:Array<{stage:string;days:string;N_percent:number;P_percent:number;K_percent:number}>;calendar_schedule_available:boolean;rainfall_today_forecast_mm:number|null;weather_guidance:string;weather_note:string};
 }
+export interface ScanRecord {id:string;farm_id:string;farmer_id:string;detected_disease:string;confidence_score:number;affected_percentage:number;severity_level:string;status:string;created_at:string;has_image:boolean;treatment_summary?:string}
+export interface HistoryData<T=ScanRecord>{available:boolean;items:T[];reason?:string|null;limit?:number}
+export interface DashboardData{farm_id:string;gis:GISData|null;weather:WeatherData|null;advisory:AdvisoryData|null;field_context:FieldContext}
 
 export interface DiseaseDetectionResult {
+  record_id?:string|null;record_saved?:boolean;history_note?:string|null;
   field_context?: FieldContext | null;
   detected_disease: string;
   marathi_name: string;

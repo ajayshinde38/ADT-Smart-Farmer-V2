@@ -1,10 +1,11 @@
 {
   "expo": {
-    "name": "ADT Smart Farmer V2",
+    "name": "ADT Smart Farmer",
     "slug": "adt-smart-farmer-v2",
     "version": "2.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "icon": "./src/assets/app-icon.png",
     "splash": {
       "backgroundColor": "#052e16",
       "resizeMode": "contain"
@@ -15,6 +16,7 @@
     },
     "android": {
       "package": "org.aiadt.smartfarmer.v2",
+      "versionCode": 1,
       "usesCleartextTraffic": true,
       "permissions": [
         "CAMERA",

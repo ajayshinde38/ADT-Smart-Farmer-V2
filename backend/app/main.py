@@ -14,6 +14,7 @@ from app.modules.weather.router import router as weather_router
 from app.modules.advisory.router import router as advisory_router
 from app.modules.pest_disease.router import router as pest_disease_router
 from app.farmers import service as farmer_service
+from app.admin.router import router as admin_router
 
 import re
 
@@ -63,6 +64,20 @@ app.include_router(gis_router, prefix=settings.API_V1_PREFIX)
 app.include_router(weather_router, prefix=settings.API_V1_PREFIX)
 app.include_router(advisory_router, prefix=settings.API_V1_PREFIX)
 app.include_router(pest_disease_router, prefix=settings.API_V1_PREFIX)
+app.include_router(admin_router, prefix=settings.API_V1_PREFIX)
+
+
+@app.middleware('http')
+async def operational_status(request:Request,call_next):
+    response=await call_next(request)
+    if response.status_code>=400:
+        from app.core.operations import record_event
+        route=request.scope.get('route')
+        # Route templates contain no farmer IDs, phone numbers, tokens or query strings.
+        record_event('api_error',getattr(route,'path','Unmatched route'),response.status_code)
+    if request.url.path.startswith(settings.API_V1_PREFIX):
+        response.headers['Cache-Control']='no-store'
+    return response
 
 
 @app.get("/health", tags=["System"])
@@ -120,7 +135,9 @@ if static_web_path.exists() and (static_web_path / "index.html").exists():
             return JSONResponse(status_code=404, content={"detail": f"Not Found: /{full_path}"})
 
         # 2. Check if a static asset directly exists on disk (e.g. favicon.ico, images)
-        target_file = static_web_path / full_path
+        target_file = (static_web_path / full_path).resolve()
+        if not target_file.is_relative_to(static_web_path.resolve()):
+            return JSONResponse(status_code=404,content={'detail':'Not found'})
         if target_file.is_file():
             return FileResponse(target_file)
 

@@ -29,7 +29,7 @@ def get_disease_detail(disease_name: str):
 
 
 @router.post("/detect", response_model=DiseaseDetectionResponse)
-async def detect_leaf_disease(file: UploadFile = File(...), farm_id: Optional[UUID] = Form(None), caller_id=Depends(require_authorized_farmer)):
+async def detect_leaf_disease(file: UploadFile = File(...), farm_id: Optional[UUID] = Form(None), caller_id=Depends(require_authorized_farmer), save_history:bool=Form(False)):
     """
     Upload crop leaf photo for AI-powered UNet segmentation, disease diagnosis,
     and recommended chemical treatment.
@@ -67,6 +67,36 @@ async def detect_leaf_disease(file: UploadFile = File(...), farm_id: Optional[UU
                 logging.getLogger(__name__).warning('Scan satellite context unavailable: %s', type(error).__name__)
                 plot = None
             result.field_context = build_field_context(farm, plot, get_cached_farm_weather(farm_id))
+            if save_history is True:
+                from app.modules.pest_disease.history import save_scan
+                result.record_id=await save_scan(farm,image_bytes,result)
+                result.record_saved=result.record_id is not None
+                result.history_note=None if result.record_saved else 'Analysis completed, but private history could not be saved.'
         return result
     except RuntimeError:
+        from app.core.operations import record_event
+        record_event('scan_failed','Image model inference was unavailable',503)
         raise HTTPException(status_code=503, detail='Image analysis is unavailable. Please try again with a clear leaf photo.')
+
+
+@router.get('/history/{farm_id}')
+async def history(farm_id:UUID,caller_id=Depends(require_authorized_farmer)):
+    from app.farmers.service import get_farm_by_id
+    from app.core.security import verify_farm_ownership
+    from app.core.records import read_records
+    farm=await run_in_threadpool(get_farm_by_id,farm_id)
+    if not farm:
+        raise HTTPException(404,'Farm not found')
+    if not verify_farm_ownership(farm,caller_id):
+        raise HTTPException(403,'This farm does not belong to your account')
+    return await read_records('pest_disease_records',farm_id=farm_id)
+
+
+@router.get('/history-image/{record_id}')
+async def history_image(record_id:UUID,caller_id=Depends(require_authorized_farmer)):
+    from app.modules.pest_disease.history import image_bytes
+    from fastapi import Response
+    data=await image_bytes(record_id,caller_id=caller_id)
+    if data is None:
+        raise HTTPException(404,'Recorded image unavailable')
+    return Response(data,media_type='image/jpeg',headers={'Cache-Control':'private, no-store'})

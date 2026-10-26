@@ -4,14 +4,14 @@ from uuid import UUID
 
 
 class SoilNutrientStatus(BaseModel):
-    ph: float
-    ec: float
-    oc: float
-    nitrogen_kg_ha: float
-    phosphorus_kg_ha: float
-    potassium_kg_ha: float
-    organic_manure_ton_ha: float
-    organic_manure_ton_acre: float
+    ph: Optional[float] = None
+    ec: Optional[float] = None
+    oc: Optional[float] = None
+    nitrogen_kg_ha: Optional[float] = None
+    phosphorus_kg_ha: Optional[float] = None
+    potassium_kg_ha: Optional[float] = None
+    organic_manure_ton_ha: Optional[float] = None
+    organic_manure_ton_acre: Optional[float] = None
 
 
 class BasalDoseBreakdown(BaseModel):
@@ -31,10 +31,10 @@ class RDFRecommendation(BaseModel):
     rdf_n_kg_acre: float
     rdf_p_kg_acre: float
     rdf_k_kg_acre: float
-    basal_dose: BasalDoseBreakdown
-    final_fertigation_n_kg_acre: float
-    final_fertigation_p_kg_acre: float
-    final_fertigation_k_kg_acre: float
+    basal_dose: Optional[BasalDoseBreakdown] = None
+    final_fertigation_n_kg_acre: Optional[float] = None
+    final_fertigation_p_kg_acre: Optional[float] = None
+    final_fertigation_k_kg_acre: Optional[float] = None
 
 
 class WeeklyStageScheduleItem(BaseModel):
@@ -55,5 +55,6 @@ class AdvisoryResponse(BaseModel):
     farmer_name: str
     area_acres: float
     soil_status: SoilNutrientStatus
-    rdf: RDFRecommendation
+    rdf: Optional[RDFRecommendation] = None
     weekly_schedules: List[WeeklyStageScheduleItem] = []
+    planning: Dict[str,Any] = {}

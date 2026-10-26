@@ -22,6 +22,8 @@ export interface InteractiveGISMapProps {
   mode?: 'A' | 'B';
   mapHeight?: number;
   onToggleMode?: (mode:'A'|'B')=>void;
+  access?:'farmer'|'admin';
+  authorizationToken?:string;
 }
 
 export const hasRasterForIndex = ({rasterInfo,activeIndex}: Pick<InteractiveGISMapProps,'rasterInfo'|'activeIndex'>) => {

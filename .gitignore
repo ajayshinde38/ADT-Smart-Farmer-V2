@@ -2,6 +2,9 @@
 node_modules/
 .expo/
 dist/
+frontend/dist/
+frontend/dist-android-check/
+frontend/dist-ios-check/
 npm-debug.*
 
 # Python / Backend
@@ -13,14 +16,19 @@ __pycache__/
 venv/
 .env
 backend/.env
+frontend/.env
+frontend/.env.local
 *.env
 *.env.*
 !*.env.example
 
-# Local Storage & Backups
+# Local Storage, Database Dumps & Backups
 local_storage/
 backups/
 scratch/
+*.dump
+*.sql.gz
+*.csv
 
 # Model Weights & Temp Cache
 *.pth
@@ -31,3 +39,30 @@ Thumbs.db
 
 # Private derived provider cache
 backend/.cache/
+dist-android-check/
+dist-ios-check/
+*.log
+artifacts/final-app-integration/source-before-*.zip
+.private/
+.build-tools/
+**/build/
+**/.gradle/
+frontend/android/local.properties
+
+# Signing Keys, Keystores & Credentials
+*.keystore
+*.jks
+*.p8
+*.p12
+*.pem
+*.key
+
+# Application Binaries & Releases (Preserve locally, exclude from Git)
+*.apk
+*.aab
+artifacts/releases/
+artifacts/releases/*.apk
+artifacts/releases/*.zip
+artifacts/stitch-reference/
+artifacts/verification-evidence/*.xml
+

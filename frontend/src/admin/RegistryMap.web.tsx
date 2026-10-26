@@ -1,0 +1,9 @@
+import React,{useEffect,useRef} from 'react';
+import L from 'leaflet';
+import { GISData } from '../types';
+import { getColorForIndex } from '../utils/gisColorScale';
+export const RegistryMap=({farms,onSelect}:{farms:GISData[];onSelect:(farmId:string)=>void})=>{
+ const container=useRef<HTMLDivElement>(null),select=useRef(onSelect);select.current=onSelect;
+ useEffect(()=>{if(!container.current)return;const cssId='admin-registry-leaflet';if(!document.getElementById(cssId)){const link=document.createElement('link');link.id=cssId;link.rel='stylesheet';link.href='/map/leaflet.css';document.head.appendChild(link);}const map=L.map(container.current,{maxZoom:21,zoomSnap:0.25});L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxNativeZoom:19,maxZoom:21,attribution:'© OpenStreetMap contributors'}).addTo(map);const group=L.featureGroup().addTo(map);farms.forEach(farm=>{if(!farm.geometry)return;const layer=L.geoJSON(farm.geometry as any,{style:{color:'#168c51',weight:2,fillColor:getColorForIndex('ndvi',farm.indices.ndvi),fillOpacity:farm.indices.capture_date&&farm.indices.ndvi!=null?0.4:0}}).addTo(group);layer.on('click',()=>select.current(farm.farm_id));const center=layer.getBounds().getCenter();const marker=L.circleMarker(center,{radius:7,color:'#fff',weight:2,fillColor:farm.indices.ndvi!=null?'#008653':'#bf8f3d',fillOpacity:1}).addTo(group);marker.on('click',()=>select.current(farm.farm_id));});if(group.getLayers().length)map.fitBounds(group.getBounds(),{padding:[28,28],maxZoom:16});else map.setView([19.2,77.1],9);const observer=new ResizeObserver(()=>map.invalidateSize());observer.observe(container.current);return()=>{observer.disconnect();map.remove();};},[farms]);
+ return <div aria-label="Authorized farm locations map" ref={container} style={{height:420,width:'100%',borderRadius:16,overflow:'hidden',background:'#e8f0e6'}}/>;
+};

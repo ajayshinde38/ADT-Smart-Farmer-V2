@@ -1,138 +1,48 @@
-import { FarmerProfile, GISData, WeatherData, AdvisoryData, DiseaseDetectionResult } from '../types';
+import { FarmerProfile, GISData, WeatherData, AdvisoryData, DiseaseDetectionResult, DashboardData, HistoryData } from '../types';
 import { Platform } from 'react-native';
 
-// Dynamically resolve base URL: on web use window origin, on Android emulator use 10.0.2.2
+// Dynamically resolve base URL: prioritize EXPO_PUBLIC_API_BASE_URL, then platform defaults
 const getBaseUrl = (): string => {
+  const configured = process.env.EXPO_PUBLIC_API_BASE_URL;
+  if (configured && /^https?:\/\//.test(configured)) return configured.replace(/\/$/,'');
   if (Platform.OS === 'web') {
     if (typeof window !== 'undefined' && window.location && typeof window.location.origin === 'string' && window.location.origin.startsWith('http')) {
       return `${window.location.origin}/api/v1`;
     }
     return 'http://127.0.0.1:8000/api/v1';
   }
-  const configured=process.env.EXPO_PUBLIC_API_BASE_URL;
-  if (configured && /^https?:\/\//.test(configured)) return configured.replace(/\/$/,'');
   if (Platform.OS === 'android') {
     return 'http://10.0.2.2:8000/api/v1';
   }
   return 'http://127.0.0.1:8000/api/v1';
 };
 
-const API_BASE_URL = getBaseUrl();
+export const API_BASE_URL = getBaseUrl();
 export const getMapServerOrigin=()=>new URL(API_BASE_URL).origin;
 
 export class ApiClient {
-  private static token: string | null = null;
-
-  static setToken(token: string | null) {
-    this.token = token;
+  private static token:string|null=null;
+  static onUnauthorized:(()=>void)|null=null;
+  static setToken(token:string|null){this.token=token;}
+  static getToken(){return this.token;}
+  private static async request<T>(path:string,options:RequestInit={},token:string|null=this.token):Promise<T>{
+    const headers:Record<string,string>={...(options.body instanceof FormData?{}:{'Content-Type':'application/json'}),...(token?{Authorization:`Bearer ${token}`}:{})};
+    const response=await fetch(API_BASE_URL+path,{...options,headers});
+    if(!response.ok){if(response.status===401&&this.token&&token===this.token)this.onUnauthorized?.();const error=await response.json().catch(()=>({}));throw new Error(typeof error.detail==='string'?error.detail:'Request failed. Please try again.');}
+    return response.json();
   }
-
-  static getToken(): string | null {
-    return this.token;
-  }
-
-  private static getHeaders(extraHeaders: Record<string, string> = {}) {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...extraHeaders,
-    };
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
-    }
-    return headers;
-  }
-
-  // Auth: Phone login (initiate verification challenge)
-  static async login(phone: string) {
-    const res = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify({ phone }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || 'Failed to sign in. Please verify phone number.');
-    }
-    return res.json();
-  }
-
-  // Auth: Select profile for family account
-  static async selectProfile(phone: string, farmerId: string, tempToken?: string) {
-    const headers = this.getHeaders();
-    if (tempToken) {
-      headers['Authorization'] = `Bearer ${tempToken}`;
-    }
-    const res = await fetch(`${API_BASE_URL}/auth/select-profile`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ phone, farmer_id: farmerId }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || 'Profile selection failed.');
-    }
-    return res.json();
-  }
-
-  // Unified Dashboard (Aggregates GIS, Weather, and Advisory in 1 in-process backend call)
-  static async getDashboard(farmId: string) {
-    const res = await fetch(`${API_BASE_URL}/farmers/dashboard/${farmId}`, {
-      headers: this.getHeaders(),
-    });
-    if (!res.ok) throw new Error('Failed to load dashboard metrics.');
-    return res.json();
-  }
-
-  // GIS: Satellite Plot Data
-  static async getGISPlot(farmId: string): Promise<GISPlotResponse> {
-    const res = await fetch(`${API_BASE_URL}/gis/plot/${farmId}`, {
-      headers: this.getHeaders(),
-    });
-    if (!res.ok) throw new Error('Failed to load GIS observations.');
-    return res.json();
-  }
-
-  static async refreshGIS(farmId: string): Promise<GISPlotResponse> {
-    const res = await fetch(`${API_BASE_URL}/gis/plot/${farmId}/refresh`, { method: 'POST', headers: this.getHeaders() });
-    if (!res.ok) throw new Error('Satellite update unavailable');
-    return res.json();
-  }
-
-  // Weather: 7-Day & Irrigation Physics
-  static async getWeather(farmId: string): Promise<WeatherData> {
-    const res = await fetch(`${API_BASE_URL}/weather/overview/${farmId}`, {
-      headers: this.getHeaders(),
-    });
-    if (!res.ok) throw new Error('Failed to load agro-weather metrics.');
-    return res.json();
-  }
-
-  // Advisory: Soil STCR & Fertigation Schedule
-  static async getAdvisory(farmId: string): Promise<AdvisoryData> {
-    const res = await fetch(`${API_BASE_URL}/advisory/farm/${farmId}`, {
-      headers: this.getHeaders(),
-    });
-    if (!res.ok) throw new Error('Failed to load soil advisory.');
-    return res.json();
-  }
-
-  // Pest & Disease: Real Image Upload Detection (PyTorch UNet)
-  static async detectDisease(formData: FormData): Promise<DiseaseDetectionResult> {
-    const headers: Record<string, string> = {};
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
-    }
-    const res = await fetch(`${API_BASE_URL}/pest-disease/detect`, {
-      method: 'POST',
-      headers,
-      body: formData,
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || 'Disease scan failed.');
-    }
-    return res.json();
-  }
+  static login(phone:string){return this.request<any>('/auth/login',{method:'POST',body:JSON.stringify({phone})},null);}
+  static sendOTP(phone:string){return this.request<{success:boolean;dev_hint?:string;message:string}>('/auth/send-otp',{method:'POST',body:JSON.stringify({phone})},null);}
+  static verifyOTP(phone:string,otp:string){return this.request<any>('/auth/verify-otp',{method:'POST',body:JSON.stringify({phone,otp})},null);}
+  static selectProfile(phone:string,farmerId:string,tempToken?:string){return this.request<any>('/auth/select-profile',{method:'POST',body:JSON.stringify({phone,farmer_id:farmerId})},tempToken||null);}
+  static getDashboard(id:string){return this.request<DashboardData>(`/farmers/dashboard/${id}`);}
+  static getGISPlot(id:string){return this.request<GISData>(`/gis/plot/${id}`);}
+  static refreshGIS(id:string){return this.request<GISData>(`/gis/plot/${id}/refresh`,{method:'POST'});}
+  static getWeather(id:string){return this.request<WeatherData>(`/weather/overview/${id}`);}
+  static getAdvisory(id:string){return this.request<AdvisoryData>(`/advisory/farm/${id}`);}
+  static detectDisease(form:FormData){return this.request<DiseaseDetectionResult>('/pest-disease/detect',{method:'POST',body:form});}
+  static getScanHistory(id:string){return this.request<HistoryData>(`/pest-disease/history/${id}`);}
+  static productComposition(id:string,product:string,quantity:number,unit:string){return this.request<{product_mass_kg:number;nutrients_kg:Record<string,number>;nutrients_kg_per_acre:Record<string,number>;note:string}>(`/advisory/farm/${id}/product-composition`,{method:'POST',body:JSON.stringify({product,quantity,unit})});}
+  static async image(path:string){const response=await fetch(API_BASE_URL+path,{headers:this.token?{Authorization:`Bearer ${this.token}`}:{}});if(!response.ok)throw new Error('Image unavailable');return response.blob();}
 }
-
-export type GISPlotResponse = GISData;
+export type GISPlotResponse=GISData;

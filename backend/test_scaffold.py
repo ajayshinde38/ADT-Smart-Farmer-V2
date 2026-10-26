@@ -168,9 +168,12 @@ def run_scaffold_tests():
     adv_data = adv_res.json()
     assert adv_data["rdf"]["expected_yield_ton_ha"] == 250.0
     assert adv_data["rdf"]["rdf_n_kg_acre"] == 315.93
-    assert adv_data["rdf"]["basal_dose"]["basal_n_kg_acre"] == 29.85
-    assert len(adv_data["weekly_schedules"]) == 4
-    print(f"[PASS] 8. Advisory Module: Authentic STCR RDF N: {adv_data['rdf']['rdf_n_kg_acre']} kg/acre, Basal N: {adv_data['rdf']['basal_dose']['basal_n_kg_acre']} kg/acre, 4 Growth Stages verified.")
+    assert adv_data["rdf"]["basal_dose"] is None
+    assert adv_data["weekly_schedules"] == []
+    assert len(adv_data["planning"]["reference_stage_splits"]) == 4
+    assert adv_data["planning"]["calendar_schedule_available"] is False
+    assert adv_data["planning"]["application_history_available"] is False
+    print(f"[PASS] 8. Advisory Module: STCR reference N: {adv_data['rdf']['rdf_n_kg_acre']} kg/acre; no invented basal application or dated schedule; 4 reference stage splits verified.")
 
     # 9. Test Pest Disease Model Inference (PyTorch UNet)
     catalog_res = client.get("/api/v1/pest-disease/catalog")

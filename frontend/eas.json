@@ -1,0 +1,9 @@
+{
+  "build": {
+    "pilot": {
+      "distribution": "internal",
+      "env": { "ADT_BUILD_PROFILE": "pilot" },
+      "android": { "buildType": "apk" }
+    }
+  }
+}

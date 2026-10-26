@@ -213,6 +213,7 @@ export const InteractiveGISMap: React.FC<InteractiveGISMapProps> = ({
   mode = 'A',
   mapHeight = 440,
   onToggleMode,
+  authorizationToken,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -476,7 +477,7 @@ export const InteractiveGISMap: React.FC<InteractiveGISMapProps> = ({
       if (!isMountedRef.current || !mapRef.current || !farmLayerGroupRef.current) return;
       if (isModeB && rasterInfo?.bounds && rasterInfo?.overlay_urls?.[activeIndex.toLowerCase()]) {
         const bounds = rasterInfo.bounds as L.LatLngBoundsExpression;
-        const token = ApiClient.getToken();
+        const token = authorizationToken || ApiClient.getToken();
         fetch(rasterInfo.overlay_urls[activeIndex.toLowerCase()], {
           headers: token ? { Authorization: `Bearer ${token}` } : {}, signal: abort.signal,
         }).then(response => {
@@ -539,6 +540,7 @@ export const InteractiveGISMap: React.FC<InteractiveGISMapProps> = ({
     rasterInfo,
     overlayVisible,
     mode,
+    authorizationToken,
   ]);
 
   useEffect(()=>{mapRef.current?.invalidateSize();},[mapHeight]);

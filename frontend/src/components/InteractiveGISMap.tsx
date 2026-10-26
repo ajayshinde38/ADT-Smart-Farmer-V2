@@ -17,7 +17,7 @@ export const InteractiveGISMap:React.FC<InteractiveGISMapProps> = (props) => {
   const [basemap,setBasemap]=useState<'satellite'|'street'>('satellite');
   const origin=getMapServerOrigin();
   const source=useMemo(()=>({html:createNativeGISDocument(origin),baseUrl:origin+'/'}),[origin]);
-  const payload=useMemo(()=>({...props,basemap,color:getColorForIndex(activeIndex,props.indexValue),token:ApiClient.getToken()}),[props,basemap]);
+  const payload=useMemo(()=>({...props,basemap,color:getColorForIndex(activeIndex,props.indexValue),token:props.authorizationToken || ApiClient.getToken()}),[props,basemap]);
   useEffect(()=>{if(ready)webview.current?.injectJavaScript(`window.updateFarmMap && window.updateFarmMap(${scriptJSON(payload)});true;`);},[ready,payload]);
   const command=(action:string)=>webview.current?.injectJavaScript(`window.controlFarmMap && window.controlFarmMap(${scriptJSON(action)});true;`);
   const spatial=mode==='B' && hasRasterForIndex(props);

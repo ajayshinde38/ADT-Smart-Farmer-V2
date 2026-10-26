@@ -6,6 +6,8 @@ from fastapi import Header, HTTPException, status
 from app.core.config import settings
 
 def create_access_token(subject: str | Any, expires_delta: Optional[timedelta] = None) -> str:
+    if settings.ENVIRONMENT!='development' and (len(settings.JWT_SECRET)<32 or settings.JWT_SECRET=='adt-smart-farmer-v2-dev-secret-key-change-in-production'):
+        raise HTTPException(503,'Production farmer signing key must be configured before sign-in.')
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:

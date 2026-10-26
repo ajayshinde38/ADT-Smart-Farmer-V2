@@ -31,20 +31,22 @@ def calculate_organic_manure(oc_value: float) -> float:
     return round(om_ton_ha, 2)
 
 
-def calculate_stcr_rdf(oc: float, n_kg_ha: float, p_kg_ha: float, k_kg_ha: float, fertilizer_choice: str = DEFAULT_FERTILIZER) -> Dict[str, Any]:
+def calculate_stcr_rdf(oc: float, n_kg_ha: float, p_kg_ha: float, k_kg_ha: float, fertilizer_choice: str = DEFAULT_FERTILIZER, expected_yield_ton_ha:float=EXPECTED_YIELD_TON_HA) -> Dict[str, Any]:
     """
     Calculates Sugarcane Soil Test Crop Response (STCR) Recommended Dose of Fertilizer:
       rdf_n_ha = (4.03 * Yield) - (1.43 * N) - (3.81 * OM)
       rdf_p_ha = (1.23 * Yield) - (2.44 * P) - (1.83 * OM)
       rdf_k_ha = (2.26 * Yield) - (0.55 * K) - (1.40 * OM)
     """
+    if any(not isinstance(value,(int,float)) or isinstance(value,bool) or not math.isfinite(value) or value<0 for value in (oc,n_kg_ha,p_kg_ha,k_kg_ha,expected_yield_ton_ha)) or expected_yield_ton_ha<=0:
+        raise ValueError('Finite, nonnegative nutrient inputs and a positive yield target are required')
     om_ton_ha = calculate_organic_manure(oc)
-    om_ton_acre = round(om_ton_ha / 2.5, 2)  # Specified OM conversion factor
+    om_ton_acre = round(om_ton_ha / HA_TO_ACRE, 2)
 
     # Equation values in kg/ha
-    rdf_n_ha = (4.03 * EXPECTED_YIELD_TON_HA) - (1.43 * n_kg_ha) - (3.81 * om_ton_ha)
-    rdf_p_ha = (1.23 * EXPECTED_YIELD_TON_HA) - (2.44 * p_kg_ha) - (1.83 * om_ton_ha)
-    rdf_k_ha = (2.26 * EXPECTED_YIELD_TON_HA) - (0.55 * k_kg_ha) - (1.40 * om_ton_ha)
+    rdf_n_ha = (4.03 * expected_yield_ton_ha) - (1.43 * n_kg_ha) - (3.81 * om_ton_ha)
+    rdf_p_ha = (1.23 * expected_yield_ton_ha) - (2.44 * p_kg_ha) - (1.83 * om_ton_ha)
+    rdf_k_ha = (2.26 * expected_yield_ton_ha) - (0.55 * k_kg_ha) - (1.40 * om_ton_ha)
 
     # Floor at 0.0
     rdf_n_ha = max(0.0, rdf_n_ha)
@@ -68,7 +70,7 @@ def calculate_stcr_rdf(oc: float, n_kg_ha: float, p_kg_ha: float, k_kg_ha: float
     fertigation_k = max(0.0, round(rdf_k_acre - basal_k, 2))
 
     return {
-        "expected_yield_ton_ha": EXPECTED_YIELD_TON_HA,
+        "expected_yield_ton_ha": expected_yield_ton_ha,
         "organic_manure_ton_ha": om_ton_ha,
         "organic_manure_ton_acre": om_ton_acre,
         "rdf_n_kg_ha": round(rdf_n_ha, 2),

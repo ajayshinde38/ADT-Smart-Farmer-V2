@@ -118,6 +118,8 @@ def _fetch_from_supabase(force: bool = False) -> None:
                         "crop_variety": farm.get("crop_variety", "Co 86032"),
                         "plantation_date": farm.get("plantation_date"),
                         "growth_stage": farm.get("growth_stage", "Unknown"),
+                        "crop_season": farm.get('crop_season'),
+                        "target_yield_ton_ha": farm.get('target_yield_ton_ha'),
                         "boundary_geojson": farm.get("boundary_geojson"),
                         "boundary_source": farm.get("boundary_source", "kml"),
                         "kml_storage_path": kml_path,

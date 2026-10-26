@@ -115,7 +115,7 @@ async def fetch_open_meteo(lat: float, lon: float) -> Dict[str, Any]:
 
         safe_url = _redact_apikey(str(resp.url))
         if resp.status_code == 200:
-            logger.info(f"Open-Meteo commercial forecast retrieved successfully for ({lat}, {lon})")
+            logger.info('Open-Meteo forecast retrieved successfully')
             return resp.json()
         elif resp.status_code in (401, 403):
             logger.error(f"Open-Meteo commercial authentication rejected (HTTP {resp.status_code}) for {safe_url}")
