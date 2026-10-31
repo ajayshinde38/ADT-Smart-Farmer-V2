@@ -23,18 +23,21 @@ def load_unet_model(weights_path: Optional[str] = None):
         import torch
         import segmentation_models_pytorch as smp
         
-        model = smp.Unet(
-            encoder_name="resnet34",
-            encoder_weights=None,
-            in_channels=3,
-            classes=4,
-            activation=None
-        )
+        # Avoid allocating randomly initialized weights alongside the checkpoint.
+        # This model is used only for inference; no optimizer holds its parameters.
+        with torch.device("meta"):
+            model = smp.Unet(
+                encoder_name="resnet34",
+                encoder_weights=None,
+                in_channels=3,
+                classes=4,
+                activation=None
+            )
         
         target_path = Path(weights_path) if weights_path else Path(__file__).parent / "models" / "best_unet.pth"
         if target_path.exists():
-            state = torch.load(str(target_path), map_location="cpu", weights_only=True)
-            model.load_state_dict(state)
+            state = torch.load(str(target_path), map_location="cpu", weights_only=True, mmap=True)
+            model.load_state_dict(state, assign=True)
             logger.info(f"Loaded UNet weights from {target_path}")
         else:
             raise FileNotFoundError('Trained model weights are unavailable')

@@ -1,3 +1,4 @@
+import { FarmPage } from '../components/FarmPage';
 import React, { useEffect, useState } from 'react';
 import {
   ScrollView,
@@ -112,7 +113,7 @@ export const AdvisoryScreen = ({
   const et0LHa = Math.round(et0Val * 10000);
 
   return (
-    <ScrollView
+    <FarmPage page="advisory"
       style={styles.page}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
@@ -568,7 +569,7 @@ export const AdvisoryScreen = ({
           </View>
         )}
       </View>
-    </ScrollView>
+    </FarmPage>
   );
 };
 

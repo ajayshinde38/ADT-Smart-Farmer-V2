@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import L from 'leaflet';
-import { ApiClient } from '../services/apiClient';
+import { API_BASE_URL, ApiClient } from '../services/apiClient';
 
 import { hasRasterForIndex, InteractiveGISMapProps } from './gisMapTypes';
-import { GISMapLegend, GISMapToolbar } from './GISMapControls';
+import { GISMapAttribution, GISMapLegend, GISMapToolbar } from './GISMapControls';
 export type { InteractiveGISMapProps } from './gisMapTypes';
 
 import {
@@ -13,6 +13,8 @@ import {
   FALLBACK_COLOR,
   getClassIndex,
   getColorForIndex,
+  getPaletteForIndex,
+  getClassRange,
 } from '../utils/gisColorScale';
 
 export { PALETTE_VEG, PALETTE_WATER, getColorForIndex, getClassIndex, FALLBACK_COLOR };
@@ -265,20 +267,20 @@ export const InteractiveGISMap: React.FC<InteractiveGISMapProps> = ({
         latitude && !isNaN(Number(latitude))
           ? Number(latitude)
           : coordinates && coordinates.length > 0 && !isNaN(Number(coordinates[0][1]))
-          ? Number(coordinates[0][1])
-          : 19.209693;
+            ? Number(coordinates[0][1])
+            : 19.209693;
 
       const initialLng =
         longitude && !isNaN(Number(longitude))
           ? Number(longitude)
           : coordinates && coordinates.length > 0 && !isNaN(Number(coordinates[0][0]))
-          ? Number(coordinates[0][0])
-          : 77.113003;
+            ? Number(coordinates[0][0])
+            : 77.113003;
 
       // Map supports deep zooming up to zoom level 21
       const map = L.map(container, {
         zoomControl: false,
-        attributionControl: true,
+        attributionControl: false,
         minZoom: 4,
         maxZoom: 21,
         zoomSnap: 0.25,
@@ -444,7 +446,7 @@ export const InteractiveGISMap: React.FC<InteractiveGISMapProps> = ({
     if (rasterLayerRef.current) {
       try {
         rasterLayerRef.current.removeFrom(map);
-      } catch (e) {}
+      } catch (e) { }
       rasterLayerRef.current = null;
     }
 
@@ -467,8 +469,8 @@ export const InteractiveGISMap: React.FC<InteractiveGISMapProps> = ({
 
     const dynamicThemeColor = getColorForIndex(activeIndex, indexValue);
     // Mode A: Palette color dynamically chosen from authentic 20-class scale
-      const hasData = Boolean(captureDate) && typeof indexValue === 'number' && Number.isFinite(indexValue);
-    const isModeB = mode === 'B' && hasRasterForIndex({rasterInfo,activeIndex});
+    const hasData = Boolean(captureDate) && typeof indexValue === 'number' && Number.isFinite(indexValue);
+    const isModeB = mode === 'B' && hasRasterForIndex({ rasterInfo, activeIndex });
 
     const abort = new AbortController();
     let rasterUrl: string | null = null;
@@ -478,15 +480,44 @@ export const InteractiveGISMap: React.FC<InteractiveGISMapProps> = ({
       if (isModeB && rasterInfo?.bounds && rasterInfo?.overlay_urls?.[activeIndex.toLowerCase()]) {
         const bounds = rasterInfo.bounds as L.LatLngBoundsExpression;
         const token = authorizationToken || ApiClient.getToken();
-        fetch(rasterInfo.overlay_urls[activeIndex.toLowerCase()], {
-          headers: token ? { Authorization: `Bearer ${token}` } : {}, signal: abort.signal,
-        }).then(response => {
-          if (!response.ok) throw new Error('Raster unavailable');
-          return response.blob();
+        // Raster URLs returned by FastAPI are API-relative. Always resolve them
+        // against the configured BACKEND, not the Expo/Vercel frontend origin.
+        const rawUrl = rasterInfo.overlay_urls[activeIndex.toLowerCase()];
+        let rasterEndpoint: URL | null = null;
+        try {
+          rasterEndpoint = new URL(rawUrl, `${API_BASE_URL}/`);
+          const apiBase = new URL(API_BASE_URL);
+          const apiPrefix = apiBase.pathname.replace(/\/$/, '');
+          // Never send the farmer bearer token to an unexpected origin/path.
+          if (
+            rasterEndpoint.origin !== apiBase.origin ||
+            !rasterEndpoint.pathname.startsWith(`${apiPrefix}/gis/plot/`) ||
+            !rasterEndpoint.pathname.endsWith('.png')
+          ) {
+            throw new Error('Raster URL is outside the authorized GIS API');
+          }
+        } catch (error) {
+          rasterEndpoint = null;
+          console.warn('Invalid GIS raster URL:', error);
+          setRasterFailed(true);
+        }
+
+        if (rasterEndpoint) fetch(rasterEndpoint.toString(), {
+          method: 'GET',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          signal: abort.signal,
+          redirect: 'error',
+        }).then(async response => {
+          if (!response.ok) throw new Error(`Raster HTTP ${response.status}`);
+          const blob = await response.blob();
+          if (!blob.size || (!blob.type.includes('image/png') && blob.type !== 'application/octet-stream')) {
+            throw new Error('Raster response is not a PNG image');
+          }
+          return blob;
         }).then(blob => {
           if (abort.signal.aborted || !mapRef.current) return;
           rasterUrl = URL.createObjectURL(blob);
-          const overlay = L.imageOverlay(rasterUrl, bounds, { opacity: overlayVisible ? 0.88 : 0, interactive: false });
+          const overlay = L.imageOverlay(rasterUrl, bounds, { opacity: overlayVisible ? 0.94 : 0, interactive: false });
           overlay.on('error', () => { if (!abort.signal.aborted) setRasterFailed(true); });
           overlay.addTo(mapRef.current);
           rasterLayerRef.current = overlay;
@@ -498,8 +529,12 @@ export const InteractiveGISMap: React.FC<InteractiveGISMapProps> = ({
             const pixel = map.project(point, 0);
             return `${100 * (pixel.x - northWest.x) / (southEast.x - northWest.x)}% ${100 * (pixel.y - northWest.y) / (southEast.y - northWest.y)}%`;
           }).join(',');
-          const element = overlay.getElement();
-          if (element) element.style.clipPath = `polygon(${clip})`;
+          const applyClip = () => {
+            const img = overlay.getElement();
+            if (img) img.style.clipPath = `polygon(${clip})`;
+          };
+          overlay.on('load', applyClip);
+          applyClip();
           polygon.bringToFront();
         }).catch(() => { if (!abort.signal.aborted) setRasterFailed(true); });
       }
@@ -509,16 +544,78 @@ export const InteractiveGISMap: React.FC<InteractiveGISMapProps> = ({
         color: '#4ade80', // Boundary remains visible independently of measurements
         weight: 3,
         fillColor: dynamicThemeColor,
-        fillOpacity: !overlayVisible || isModeB ? 0.0 : (hasData ? 0.5 : 0.0), // In Mode B, 0 opacity allows authentic pixel raster to show through
+        fillOpacity: !overlayVisible || isModeB ? 0.0 : (hasData ? 0.42 : 0.0), // In Mode B, 0 opacity allows authentic pixel raster to show through
         dashArray: undefined,
       });
 
       group.addLayer(polygon);
 
+      // Hover on desktop, tap on mobile. Read authentic PNG color classes,
+      // never invent an exact per-pixel index value from a rendered PNG.
+      let sourcePixels: CanvasRenderingContext2D | null = null;
+      let inspectionTip: L.Tooltip | null = null;
+      let pinned = false;
+      const inspect = (event: L.LeafletMouseEvent) => {
+        if (!overlayVisible) return;
+        let label = '';
+        if (isModeB && rasterInfo?.bounds) {
+          const image = rasterLayerRef.current?.getElement() as HTMLImageElement | undefined;
+          if (!image?.complete || !image.naturalWidth) return;
+          if (!sourcePixels) {
+            const canvas = document.createElement('canvas');
+            canvas.width = image.naturalWidth;
+            canvas.height = image.naturalHeight;
+            const context = canvas.getContext('2d', { willReadFrequently: true });
+            if (!context) return;
+            try {
+              context.drawImage(image, 0, 0);
+            } catch (_) { return; }
+            sourcePixels = context;
+          }
+          const [southWest, northEast] = rasterInfo.bounds;
+          const nw = map.project([northEast[0], southWest[1]], 0);
+          const se = map.project([southWest[0], northEast[1]], 0);
+          const cursor = map.project(event.latlng, 0);
+          const rx = (cursor.x - nw.x) / (se.x - nw.x);
+          const ry = (cursor.y - nw.y) / (se.y - nw.y);
+          if (rx < 0 || ry < 0 || rx >= 1 || ry >= 1) return;
+          const px = Math.floor(rx * sourcePixels.canvas.width);
+          const py = Math.floor(ry * sourcePixels.canvas.height);
+          const pixel = sourcePixels.getImageData(px, py, 1, 1).data;
+          if (!pixel[3]) {
+            label = language === 'mr' ? 'या ठिकाणी डेटा नाही' : 'No valid satellite pixel';
+          } else {
+            const i = getPaletteForIndex(activeIndex).findIndex((hex) =>
+              parseInt(hex.slice(1, 3), 16) === pixel[0] &&
+              parseInt(hex.slice(3, 5), 16) === pixel[1] &&
+              parseInt(hex.slice(5, 7), 16) === pixel[2]
+            );
+            if (i < 0) {
+              label = language === 'mr' ? 'रंग श्रेणी उपलब्ध नाही' : 'Pixel class unavailable';
+            } else {
+              const range = getClassRange(i);
+              label = `${activeIndex.toUpperCase()}: ${range.low.toFixed(2)}–${range.high.toFixed(2)} (${language === 'mr' ? 'उपग्रह रंग श्रेणी' : 'satellite class range'})`;
+            }
+          }
+        } else if (hasData && indexValue != null) {
+          label = `${activeIndex.toUpperCase()}: ${indexValue.toFixed(2)} (${language === 'mr' ? 'शेताची सरासरी' : 'field average'})`;
+        }
+        if (!label) return;
+        if (!inspectionTip) {
+          inspectionTip = L.tooltip({ permanent: true, direction: 'top', offset: L.point(0, -12), interactive: false, className: 'custom-leaflet-tooltip' });
+        }
+        inspectionTip.setLatLng(event.latlng).setContent(label);
+        if (!map.hasLayer(inspectionTip)) inspectionTip.addTo(map);
+      };
+      polygon.on('mousemove', (event: L.LeafletMouseEvent) => { if (!pinned) inspect(event); });
+      polygon.on('click', (event: L.LeafletMouseEvent) => { pinned = true; inspect(event); });
+      polygon.on('mouseout', () => { if (!pinned && inspectionTip) map.removeLayer(inspectionTip); });
+      polygon.on('remove', () => { if (inspectionTip) map.removeLayer(inspectionTip); });
+
       // 3. Fit Map to Polygon once on load without resetting user pan/zoom on index selection
       const polyBounds = polygon.getBounds();
       if (!hasInitialBoundsFitRef.current && polyBounds.isValid()) {
-        map.fitBounds(polyBounds, { paddingTopLeft: [30,30], paddingBottomRight: [30,(hasData || isModeB) && overlayVisible ? 140 : 30], maxZoom: 19 });
+        map.fitBounds(polyBounds, { paddingTopLeft: [30, 30], paddingBottomRight: [30, 30], maxZoom: 19 });
         hasInitialBoundsFitRef.current = true;
       }
     });
@@ -543,7 +640,7 @@ export const InteractiveGISMap: React.FC<InteractiveGISMapProps> = ({
     authorizationToken,
   ]);
 
-  useEffect(()=>{mapRef.current?.invalidateSize();},[mapHeight]);
+  useEffect(() => { mapRef.current?.invalidateSize(); }, [mapHeight]);
 
   const handleCenter = useCallback(() => {
     const map = mapRef.current;
@@ -553,7 +650,7 @@ export const InteractiveGISMap: React.FC<InteractiveGISMapProps> = ({
     if (group && group.getLayers().length > 0) {
       const bounds = group.getBounds();
       if (bounds.isValid()) {
-        map.fitBounds(bounds, { paddingTopLeft: [30,30], paddingBottomRight: [30,captureDate && overlayVisible ? 140 : 30], maxZoom: 19 });
+        map.fitBounds(bounds, { paddingTopLeft: [30, 30], paddingBottomRight: [30, 30], maxZoom: 19 });
         return;
       }
     }
@@ -561,7 +658,7 @@ export const InteractiveGISMap: React.FC<InteractiveGISMapProps> = ({
     if (latitude && longitude && !isNaN(Number(latitude)) && !isNaN(Number(longitude))) {
       map.setView([Number(latitude), Number(longitude)], 16);
     }
-  }, [latitude, longitude,captureDate,overlayVisible]);
+  }, [latitude, longitude, captureDate, overlayVisible]);
 
   const handleZoomIn = useCallback(() => {
     if (mapRef.current) mapRef.current.zoomIn();
@@ -572,51 +669,51 @@ export const InteractiveGISMap: React.FC<InteractiveGISMapProps> = ({
   }, []);
 
   const hasData = Boolean(captureDate) && typeof indexValue === 'number' && Number.isFinite(indexValue);
-  const isModeB = mode === 'B' && hasRasterForIndex({rasterInfo,activeIndex});
+  const isModeB = mode === 'B' && hasRasterForIndex({ rasterInfo, activeIndex });
 
   return (
     <View style={styles.wrapper}>
       <View style={{ position: 'relative' }}>
-      {/* 1. Large Farm Map Viewport */}
-      <div
-        ref={mapContainerRef}
-        style={{
-          position: 'relative',
-          width: '100%',
-          height: mapHeight,
-          backgroundColor: '#1e293b',
-          zIndex: 1,
-        }}
-      />
+        {/* 1. Large Farm Map Viewport */}
+        <div
+          ref={mapContainerRef}
+          style={{
+            position: 'relative',
+            width: '100%',
+            height: mapHeight,
+            backgroundColor: '#1e293b',
+            zIndex: 1,
+          }}
+        />
 
-      {(hasData || isModeB) && overlayVisible && <GISMapLegend activeIndex={activeIndex} language={language} spatial={isModeB} canCompare={hasRasterForIndex({rasterInfo,activeIndex}) && hasData} onToggleMode={onToggleMode}/>}
-      {rasterFailed && <View style={styles.warningOverlay}>
-        <Text style={styles.warningText}>{language === 'mr' ? 'रंगीत नकाशा उपलब्ध नाही. सरासरी पाहा.' : 'Crop overlay unavailable. Select Average to view the field value.'}</Text>
-      </View>}
+        {rasterFailed && <View style={styles.warningOverlay}>
+          <Text style={styles.warningText}>{language === 'mr' ? 'रंगीत नकाशा उपलब्ध नाही. सरासरी पाहा.' : 'Real satellite image could not load. The field-average value is still available below.'}</Text>
+        </View>}
 
-      {mapError && (
-        <View style={styles.errorOverlay}>
-          <Text style={styles.errorText}>⚠️ {mapError}</Text>
-        </View>
-      )}
+        {mapError && (
+          <View style={styles.errorOverlay}>
+            <Text style={styles.errorText}>⚠️ {mapError}</Text>
+          </View>
+        )}
 
-      {tileWarning && !mapError && (
-        <View style={styles.warningOverlay}>
-          <Text style={styles.warningText}>🛰️ {tileWarning}</Text>
-        </View>
-      )}
+        {tileWarning && !mapError && (
+          <View style={styles.warningOverlay}>
+            <Text style={styles.warningText}>🛰️ {tileWarning}</Text>
+          </View>
+        )}
 
       </View>
-      <GISMapToolbar language={language} basemap={basemap} onBasemap={setBasemap} onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} onCenter={handleCenter}/>
-
+      {(hasData || isModeB) && overlayVisible && <GISMapLegend activeIndex={activeIndex} language={language} spatial={isModeB} canCompare={hasRasterForIndex({ rasterInfo, activeIndex }) && hasData} onToggleMode={onToggleMode} />}
+      <GISMapToolbar language={language} basemap={basemap} onBasemap={setBasemap} onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} onCenter={handleCenter} />
+      <GISMapAttribution language={language} basemap={basemap} />
     </View>
   );
 };
 
-const styles=StyleSheet.create({
-  wrapper:{width:'100%',borderRadius:18,overflow:'hidden',backgroundColor:'#dfe8db',borderWidth:1,borderColor:'#dce6da'},
-  errorOverlay:{position:'absolute',top:12,left:12,right:12,zIndex:600,padding:14,borderRadius:12,backgroundColor:'#f9e7dd'},
-  errorText:{fontSize:13,color:'#8b4233',lineHeight:20},
-  warningOverlay:{position:'absolute',top:12,left:12,right:12,zIndex:600,padding:12,borderRadius:12,backgroundColor:'#fff4dc'},
-  warningText:{fontSize:13,color:'#765624',lineHeight:20},
+const styles = StyleSheet.create({
+  wrapper: { width: '100%', borderRadius: 18, overflow: 'hidden', backgroundColor: '#dfe8db', borderWidth: 1, borderColor: '#dce6da' },
+  errorOverlay: { position: 'absolute', top: 12, left: 12, right: 12, zIndex: 600, padding: 14, borderRadius: 12, backgroundColor: '#f9e7dd' },
+  errorText: { fontSize: 13, color: '#8b4233', lineHeight: 20 },
+  warningOverlay: { position: 'absolute', top: 12, left: 12, right: 12, zIndex: 600, padding: 12, borderRadius: 12, backgroundColor: '#fff4dc' },
+  warningText: { fontSize: 13, color: '#765624', lineHeight: 20 },
 });

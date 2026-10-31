@@ -1,68 +1,263 @@
-from fastapi import APIRouter, HTTPException, Path, Depends, Response
+
+"""Protected GIS routes for real Sentinel-2 satellite imagery."""
+
+import logging
 from uuid import UUID
 
-from app.modules.gis.schemas import GISPlotResponse
-from app.modules.gis import service
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Path,
+    Response,
+)
+
+from app.core.security import (
+    require_authorized_farmer,
+    verify_farm_ownership,
+)
 from app.farmers import service as farmer_service
-from app.core.security import require_authorized_farmer, verify_farm_ownership
+from app.modules.gis import service
+from app.modules.gis.schemas import GISPlotResponse
+from app.modules.gis.satellite_refresh import (
+    KEYS,
+    refresh_observation,
+)
+from app.modules.gis.raster_storage import (
+    save_genuine_raster_persistently,
+)
 
-router = APIRouter(prefix="/gis", tags=["GIS & Satellite Crop Health"])
+logger = logging.getLogger(__name__)
+
+router = APIRouter(
+    prefix="/gis",
+    tags=["GIS & Satellite Crop Health"],
+)
 
 
-@router.get("/plot/{farm_id}", response_model=GISPlotResponse)
-def get_plot_gis_data(farm_id: UUID, caller_id: UUID = Depends(require_authorized_farmer)):
-    """
-    Get farm polygon boundary from KML and current Copernicus Sentinel-2
-    vegetation indices (NDVI, EVI, NDRE, MSAVI, NDMI, NDWI) and canopy health status.
-    Protected by farm ownership authorization.
-    """
+def _owned_farm(farm_id: UUID, caller_id: UUID) -> dict:
+    """Verify the authenticated user owns the requested farm."""
+
     farm = farmer_service.get_farm_by_id(farm_id)
+
     if not farm:
-        raise HTTPException(status_code=404, detail="Farm not found")
-    if caller_id and not verify_farm_ownership(farm, caller_id):
-        raise HTTPException(status_code=403, detail="Forbidden: You are not authorized to view this farm's satellite observations")
+        raise HTTPException(
+            status_code=404,
+            detail="Farm not found",
+        )
 
-    data = service.get_farm_plot_gis(farm_id)
-    if not data:
-        raise HTTPException(status_code=404, detail="Farm geometry or GIS data not found")
-    return data
+    if (
+        caller_id is None
+        or not verify_farm_ownership(farm, caller_id)
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Not authorized to access this farm",
+        )
+
+    return farm
 
 
-@router.get("/plot/{farm_id}/raster/{index_name}.png")
-def get_plot_raster_png(farm_id: UUID, index_name: str, caller_id: UUID = Depends(require_authorized_farmer)):
-    """
-    Returns authentic Sentinel-2 per-pixel index raster image for authorized pilot farm parcel.
-    """
-    farm = farmer_service.get_farm_by_id(farm_id)
-    if not farm:
-        raise HTTPException(status_code=404, detail="Farm not found")
-    if caller_id and not verify_farm_ownership(farm, caller_id):
-        raise HTTPException(status_code=403, detail="Forbidden: You are not authorized to view this farm's raster data")
+@router.get(
+    "/plot/{farm_id}",
+    response_model=GISPlotResponse,
+)
+def get_plot_gis_data(
+    farm_id: UUID,
+    caller_id: UUID = Depends(require_authorized_farmer),
+):
+    """Return farm geometry, recorded indices and raster metadata."""
 
-    png_bytes = service.get_raster_png_bytes(farm_id, index_name)
-    if not png_bytes:
-        raise HTTPException(status_code=404, detail="Raster overlay not available for this plot")
+    _owned_farm(farm_id, caller_id)
+
+    result = service.get_farm_plot_gis(farm_id)
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="GIS data unavailable",
+        )
+
+    return result
+
+
+@router.get(
+    "/plot/{farm_id}/raster/{index_name}.png",
+)
+def get_plot_raster_png(
+    farm_id: UUID,
+    index_name: str = Path(
+        description="Satellite index name"
+    ),
+    caller_id: UUID = Depends(require_authorized_farmer),
+):
+    """Serve an authentic satellite raster to its authorized farmer."""
+
+    _owned_farm(farm_id, caller_id)
+
+    index = index_name.lower()
+
+    if index not in KEYS:
+        raise HTTPException(
+            status_code=422,
+            detail="Unsupported satellite index",
+        )
+
+    image = service.get_raster_png_bytes(
+        farm_id,
+        index,
+    )
+
+    if not image:
+        raise HTTPException(
+            status_code=404,
+            detail="Satellite raster not available",
+        )
 
     return Response(
-        content=png_bytes,
+        content=image,
         media_type="image/png",
-        headers={"Cache-Control": "private, max-age=86400"}
+        headers={
+            "Cache-Control": "private, max-age=60",
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 
+@router.post(
+    "/plot/{farm_id}/refresh",
+    response_model=GISPlotResponse,
+)
+async def refresh_plot_observation(
+    farm_id: UUID,
+    caller_id: UUID = Depends(require_authorized_farmer),
+):
+    """Refresh real field averages without generating new raster images."""
 
-@router.post('/plot/{farm_id}/refresh', response_model=GISPlotResponse)
-async def refresh_plot_observation(farm_id: UUID, caller_id: UUID = Depends(require_authorized_farmer)):
-    farm = farmer_service.get_farm_by_id(farm_id)
-    if not farm:
-        raise HTTPException(status_code=404, detail='Farm not found')
-    if not verify_farm_ownership(farm, caller_id):
-        raise HTTPException(status_code=403, detail='Forbidden: You are not authorized to update this farm')
-    from .satellite_refresh import refresh_observation
+    farm = _owned_farm(farm_id, caller_id)
+
     try:
         await refresh_observation(farm)
+
     except ValueError as error:
-        raise HTTPException(status_code=422, detail=str(error))
+        raise HTTPException(
+            status_code=422,
+            detail=str(error),
+        ) from error
+
     except Exception:
-        raise HTTPException(status_code=503, detail='Satellite update unavailable. Existing observations are preserved.')
-    return service.get_farm_plot_gis(farm_id)
+        logger.exception(
+            "Satellite observation refresh failed: %s",
+            farm_id,
+        )
+
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Satellite update unavailable. "
+                "Existing observations are preserved."
+            ),
+        ) from None
+
+    result = service.get_farm_plot_gis(farm_id)
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="GIS data unavailable",
+        )
+
+    return result
+
+
+@router.post(
+    "/plot/{farm_id}/raster/{index_name}/generate",
+    response_model=GISPlotResponse,
+)
+async def generate_plot_raster(
+    farm_id: UUID,
+    index_name: str = Path(
+        description="NDVI, EVI, NDRE, MSAVI, NDMI or NDWI"
+    ),
+    caller_id: UUID = Depends(require_authorized_farmer),
+):
+    """Generate and privately store one genuine satellite raster.
+
+    This endpoint must be called explicitly. It does not run when
+    opening the GIS screen or refreshing field averages.
+    """
+
+    farm = _owned_farm(farm_id, caller_id)
+
+    index = index_name.lower()
+
+    if index not in KEYS:
+        raise HTTPException(
+            status_code=422,
+            detail="Unsupported satellite index",
+        )
+
+    if not farm.get("boundary_geojson"):
+        raise HTTPException(
+            status_code=422,
+            detail="A valid farm boundary is required",
+        )
+
+    current = service.get_farm_plot_gis(farm_id)
+
+    if current is None:
+        raise HTTPException(
+            status_code=404,
+            detail="GIS data unavailable",
+        )
+
+    observation_date = current.indices.capture_date
+
+    if observation_date is None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "No dated satellite observation available. "
+                "Refresh field averages first."
+            ),
+        )
+
+    try:
+        # Generate genuine cloud-masked pixels and upload
+        # the PNG plus manifest to PRIVATE Supabase Storage.
+        await save_genuine_raster_persistently(
+            farm,
+            index,
+            observation_date,
+        )
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=422,
+            detail=str(error),
+        ) from error
+
+    except Exception:
+        logger.exception(
+            "Persistent raster generation failed: farm=%s index=%s",
+            farm_id,
+            index,
+        )
+
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Unable to generate or store satellite imagery. "
+                "Existing observations are preserved."
+            ),
+        ) from None
+
+    result = service.get_farm_plot_gis(farm_id)
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="GIS data unavailable after raster generation",
+        )
+
+    return result

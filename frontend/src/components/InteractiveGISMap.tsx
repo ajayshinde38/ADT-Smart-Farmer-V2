@@ -4,7 +4,7 @@ import { WebView } from 'react-native-webview';
 import { ApiClient, getMapServerOrigin } from '../services/apiClient';
 import { createNativeGISDocument, scriptJSON } from '../utils/nativeGISDocument';
 import { getColorForIndex } from '../utils/gisColorScale';
-import { GISMapLegend, GISMapToolbar } from './GISMapControls';
+import { GISMapAttribution, GISMapLegend, GISMapToolbar } from './GISMapControls';
 import { hasRasterForIndex, InteractiveGISMapProps } from './gisMapTypes';
 export type { InteractiveGISMapProps } from './gisMapTypes';
 export { PALETTE_VEG, PALETTE_WATER, getColorForIndex, getClassIndex, FALLBACK_COLOR } from '../utils/gisColorScale';
@@ -33,9 +33,10 @@ export const InteractiveGISMap:React.FC<InteractiveGISMapProps> = (props) => {
       />
       {!ready && !failed && <View style={styles.loading} pointerEvents="none"><ActivityIndicator color="#285d3d"/><Text style={styles.note}>{language==='mr'?'नकाशा उघडत आहे…':'Opening farm map…'}</Text></View>}
       {failed && <View style={styles.loading}><Text style={styles.note}>{language==='mr'?'नकाशा उघडला नाही. इंटरनेट व अॅप सर्व्हर तपासा.':'Map unavailable. Check your connection and app server.'}</Text><TouchableOpacity style={styles.retry} onPress={()=>{setReady(false);setFailed(false);setRetry(value=>value+1);}}><Text style={styles.note}>{language==='mr'?'पुन्हा प्रयत्न करा':'Try again'}</Text></TouchableOpacity></View>}
-      {ready && (spatial || measured) && overlayVisible && <GISMapLegend activeIndex={activeIndex} language={language} spatial={spatial} canCompare={hasRasterForIndex(props)&&measured} onToggleMode={onToggleMode}/>}
     </View>
+    {ready && (spatial || measured) && overlayVisible && <GISMapLegend activeIndex={activeIndex} language={language} spatial={spatial} canCompare={hasRasterForIndex(props)&&measured} onToggleMode={onToggleMode}/>}
     <GISMapToolbar language={language} basemap={basemap} onBasemap={setBasemap} onZoomIn={()=>command('in')} onZoomOut={()=>command('out')} onCenter={()=>command('center')}/>
+    <GISMapAttribution language={language} basemap={basemap}/>
   </View>;
 };
 const styles=StyleSheet.create({wrapper:{width:'100%',borderRadius:18,overflow:'hidden',backgroundColor:'#dfe8db',borderWidth:1,borderColor:'#dce6da'},webview:{flex:1,backgroundColor:'#dfe8db'},loading:{...StyleSheet.absoluteFillObject,alignItems:'center',justifyContent:'center',padding:24,gap:12,backgroundColor:'#f0f5ec'},note:{fontSize:14,lineHeight:21,color:'#3f6449',textAlign:'center'},retry:{padding:14,minHeight:44,borderRadius:10,backgroundColor:'#dcebd5'}});

@@ -2,6 +2,7 @@ import React,{useEffect,useState} from 'react';
 import { StatusBar,StyleSheet,Platform,View } from 'react-native';
 import { SafeAreaProvider,SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { AdminLogin } from './src/admin/AdminLogin';
@@ -12,7 +13,7 @@ import { FarmerProfile } from './src/types';
 import { ApiClient } from './src/services/apiClient';
 import { Loading,AppText as Text } from './src/components/ui';
 export default function App(){
- const [fontsLoaded,fontError]=useFonts({Inter:require('./src/assets/fonts/Inter-400.ttf'),'Inter-Bold':require('./src/assets/fonts/Inter-700.ttf')});
+ const [fontsLoaded,fontError]=useFonts({...MaterialIcons.font,Inter:require('./src/assets/fonts/Inter-400.ttf'),'Inter-Bold':require('./src/assets/fonts/Inter-700.ttf')});
  const [role,setRole]=useState<'farmer'|'admin'>(()=>Platform.OS==='web'&&typeof window!=='undefined'&&window.location.pathname.startsWith('/admin')?'admin':'farmer');
  const [farmer,setFarmer]=useState<FarmerProfile|null>(null),[token,setToken]=useState<string|null>(null),[language,setLanguage]=useState<'en'|'mr'>('en'),[admin,setAdmin]=useState<AdminSession|null>(null),[notice,setNotice]=useState('');
  const logout=()=>{ApiClient.setToken(null);setFarmer(null);setToken(null);};

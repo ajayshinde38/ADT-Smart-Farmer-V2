@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Image, Platform } from 'react-native';
 import { AppText as Text, Icon } from '../components/ui';
+import { MotionIcon } from '../components/MotionIcon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AlertsScreen } from '../screens/AlertsScreen';
 import { FarmerProfile } from '../types';
@@ -70,14 +71,10 @@ export const RootNavigator: React.FC<RootNavigatorProps> = ({ farmer, language, 
               style={styles.avatarImg}
               resizeMode="cover"
             />
-            <View style={styles.onlineBadge} />
           </View>
           <View style={styles.nameBlock}>
             <View style={styles.nameRow}>
               <Text style={styles.name} numberOfLines={1}>{farmer.name}</Text>
-              <View style={styles.proPill}>
-                <Text style={styles.proText}>Pro</Text>
-              </View>
             </View>
             <View style={styles.locationRow}>
               <Icon name="location-on" size={13} color={colors.primary} />
@@ -110,7 +107,6 @@ export const RootNavigator: React.FC<RootNavigatorProps> = ({ farmer, language, 
             activeOpacity={0.8}
           >
             <Icon name="notifications" size={23} color="#374151" />
-            <View style={styles.unreadDot} />
           </TouchableOpacity>
         </View>
       </View>
@@ -132,9 +128,9 @@ export const RootNavigator: React.FC<RootNavigatorProps> = ({ farmer, language, 
                 style={styles.scanTab}
                 activeOpacity={0.85}
               >
-                <View style={styles.scanBtn}>
+                <MotionIcon active={isActive} style={styles.scanBtn}>
                   <Icon name="qr-code-scanner" color="#ffffff" size={26} />
-                </View>
+                </MotionIcon>
                 <Text style={[styles.tabLabel, styles.scanLabel]}>{label}</Text>
               </TouchableOpacity>
             );
@@ -149,13 +145,13 @@ export const RootNavigator: React.FC<RootNavigatorProps> = ({ farmer, language, 
               style={styles.tab}
               activeOpacity={0.8}
             >
-              <View style={[styles.iconWrap, isActive && styles.iconWrapActive]}>
+              <MotionIcon active={isActive} style={[styles.iconWrap, isActive && styles.iconWrapActive]}>
                 <Icon
                   name={icon as any}
                   color={isActive ? colors.primary : '#64748b'}
                   size={21}
                 />
-              </View>
+              </MotionIcon>
               <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
                 {label}
               </Text>
@@ -212,17 +208,6 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
   },
-  onlineBadge: {
-    position: 'absolute',
-    bottom: -1,
-    right: -1,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#10b981',
-    borderWidth: 2,
-    borderColor: '#ffffff',
-  },
   nameBlock: {
     flex: 1,
     justifyContent: 'center',
@@ -237,19 +222,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0f172a',
     maxWidth: 160,
-  },
-  proPill: {
-    backgroundColor: '#dcfce7',
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 10,
-    borderWidth: 0.5,
-    borderColor: '#86efac',
-  },
-  proText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#15803d',
   },
   locationRow: {
     flexDirection: 'row',
@@ -292,17 +264,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8faf8',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  unreadDot: {
-    position: 'absolute',
-    top: 6,
-    right: 7,
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: '#f43f5e',
-    borderWidth: 1.5,
-    borderColor: '#ffffff',
   },
   body: {
     flex: 1,

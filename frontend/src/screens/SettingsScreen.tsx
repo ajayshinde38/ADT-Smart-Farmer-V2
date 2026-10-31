@@ -1,3 +1,4 @@
+import { FarmPage } from '../components/FarmPage';
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -56,7 +57,7 @@ export const SettingsScreen: React.FC<Props> = ({
   const soilType = context?.soil?.available ? (mr ? 'काळी सुपीक माती (चिकणमाती)' : 'Black Soil (Clay Loam)') : (mr ? 'मध्यम काळी माती' : 'Medium Black Soil');
 
   return (
-    <ScrollView style={styles.page} contentContainerStyle={styles.content}>
+    <FarmPage page="profile" style={styles.page} contentContainerStyle={styles.content}>
       {/* 1. Farmer Profile Header Card */}
       <View style={styles.profileHeaderCard}>
         <View style={styles.portraitWrap}>
@@ -316,7 +317,7 @@ export const SettingsScreen: React.FC<Props> = ({
         icon="logout"
         onPress={onLogout}
       />
-    </ScrollView>
+    </FarmPage>
   );
 };
 

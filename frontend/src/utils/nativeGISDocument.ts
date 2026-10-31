@@ -14,7 +14,7 @@ export const createNativeGISDocument=(origin:string)=>{
  const origin=${scriptJSON(safeOrigin)};
  const send=(type)=>{if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(JSON.stringify({type:type}));};
  if(!window.L){send('map-error');return;}
- const map=L.map('map',{zoomControl:false,minZoom:4,maxZoom:21,zoomSnap:0.25,zoomDelta:0.5,attributionControl:true}).setView([19,77],15);
+ const map=L.map('map',{zoomControl:false,minZoom:4,maxZoom:21,zoomSnap:0.25,zoomDelta:0.5,attributionControl:false}).setView([19,77],15);
  let boundary=null,tiles=null,raster=null,abort=null,blobURL=null,lastFarm='',lastBase='',version=0,current=null,tileErrors=0;
  const notice=document.getElementById('notice');
  const tell=(text)=>{notice.textContent=text;notice.style.display=text?'block':'none';};
@@ -24,7 +24,7 @@ export const createNativeGISDocument=(origin:string)=>{
    if(raster)map.removeLayer(raster);raster=null;
    if(blobURL)URL.revokeObjectURL(blobURL);blobURL=null;
  }
- function center(){if(boundary&&boundary.getBounds().isValid())map.fitBounds(boundary.getBounds(),{paddingTopLeft:[30,30],paddingBottomRight:[30,current&&current.captureDate&&current.overlayVisible!==false?140:30],maxZoom:19});}
+ function center(){if(boundary&&boundary.getBounds().isValid())map.fitBounds(boundary.getBounds(),{paddingTopLeft:[30,30],paddingBottomRight:[30,30],maxZoom:19});}
  function basemap(name){
    if(name===lastBase)return;lastBase=name;tileErrors=0;
    if(tiles)map.removeLayer(tiles);
@@ -44,7 +44,7 @@ export const createNativeGISDocument=(origin:string)=>{
    const validBounds=Array.isArray(bounds)&&bounds.length===2&&bounds.every(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite))&&bounds[0][0]<bounds[1][0]&&bounds[0][1]<bounds[1][1];
    const spatial=data.mode==='B'&&info.is_available&&info.acquisition_date&&validBounds&&info.overlay_urls&&info.overlay_urls[key];
    const measured=!!data.captureDate&&typeof data.indexValue==='number'&&Number.isFinite(data.indexValue);
-   boundary=L.polygon(points,{color:'#60e890',weight:3,fillColor:data.color||'#94a3b8',fillOpacity:data.overlayVisible!==false&&!spatial&&measured?0.5:0}).addTo(map);
+   boundary=L.polygon(points,{color:'#60e890',weight:3,fillColor:data.color||'#94a3b8',fillOpacity:data.overlayVisible!==false&&!spatial&&measured?0.25:0}).addTo(map);
    const farmKey=String(data.farmId||'')+JSON.stringify(points);
    if(farmKey!==lastFarm){lastFarm=farmKey;center();}
    if(!spatial||data.overlayVisible===false)return;
@@ -60,7 +60,7 @@ export const createNativeGISDocument=(origin:string)=>{
    .then(blob=>{
      if(request!==version)return;
      blobURL=URL.createObjectURL(blob);
-     raster=L.imageOverlay(blobURL,bounds,{opacity:0.88,interactive:false}).addTo(map);
+     raster=L.imageOverlay(blobURL,bounds,{opacity:0.94,interactive:false}).addTo(map);
      const nw=map.project([bounds[1][0],bounds[0][1]],0),se=map.project([bounds[0][0],bounds[1][1]],0);
      const clip=points.map(point=>{const pixel=map.project(point,0);return (100*(pixel.x-nw.x)/(se.x-nw.x))+'% '+(100*(pixel.y-nw.y)/(se.y-nw.y))+'%';}).join(',');
      const image=raster.getElement();if(image)image.style.clipPath='polygon('+clip+')';

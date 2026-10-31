@@ -1,3 +1,4 @@
+import { FarmPage } from '../components/FarmPage';
 import React, { useState } from 'react';
 import {
   View,
@@ -80,7 +81,7 @@ export const LoginScreen: React.FC<Props> = ({
   };
 
   return (
-    <ScrollView
+    <FarmPage page="login"
       style={styles.page}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
@@ -292,7 +293,7 @@ export const LoginScreen: React.FC<Props> = ({
           </TouchableOpacity>
         )}
       </View>
-    </ScrollView>
+    </FarmPage>
   );
 };
 
