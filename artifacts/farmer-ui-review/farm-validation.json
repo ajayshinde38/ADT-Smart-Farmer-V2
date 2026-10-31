@@ -1,0 +1,89 @@
+[
+  {
+    "name": "amol shubhashrao kadam",
+    "area_acres": 1.86,
+    "indices": {
+      "ndvi": 0.431,
+      "evi": 0.235,
+      "ndre": 0.273,
+      "msavi": 0.206,
+      "ndmi": 0.043,
+      "ndwi": 0.043,
+      "capture_date": "2026-10-12",
+      "cloud_coverage_pct": null
+    },
+    "raster": null,
+    "weather": {
+      "farm_matches": true,
+      "temperature_c": 31.2,
+      "timezone": "Asia/Kolkata",
+      "cache_entries": 1
+    }
+  },
+  {
+    "name": "asawari amol kadam",
+    "area_acres": 1.9,
+    "indices": {
+      "ndvi": null,
+      "evi": null,
+      "ndre": null,
+      "msavi": null,
+      "ndmi": null,
+      "ndwi": null,
+      "capture_date": null,
+      "cloud_coverage_pct": null
+    },
+    "raster": null,
+    "weather": {
+      "farm_matches": true,
+      "temperature_c": 31.2,
+      "timezone": "Asia/Kolkata",
+      "cache_entries": 2
+    }
+  },
+  {
+    "name": "Dhondiba Dulbaji Dakhore",
+    "area_acres": 1.4,
+    "indices": {
+      "ndvi": 0.4502,
+      "evi": 0.3069,
+      "ndre": 0.2892,
+      "msavi": 0.2786,
+      "ndmi": 0.1011,
+      "ndwi": 0.1011,
+      "capture_date": "2026-10-22",
+      "cloud_coverage_pct": null
+    },
+    "raster": {
+      "is_available": true,
+      "scene_id": "S2B_MSIL2A_20241012T051649_N0511_R062_T43QGB_20241012T082350",
+      "acquisition_date": "2024-10-12",
+      "resolution_meters": 10.0,
+      "bounds": [
+        [
+          19.209149,
+          77.112733
+        ],
+        [
+          19.210312,
+          77.113232
+        ]
+      ],
+      "overlay_urls": {
+        "ndvi": "/api/v1/gis/plot/fa0094b2-c218-441d-bc1a-870f0a01430b/raster/ndvi.png",
+        "evi": "/api/v1/gis/plot/fa0094b2-c218-441d-bc1a-870f0a01430b/raster/evi.png",
+        "ndre": "/api/v1/gis/plot/fa0094b2-c218-441d-bc1a-870f0a01430b/raster/ndre.png",
+        "msavi": "/api/v1/gis/plot/fa0094b2-c218-441d-bc1a-870f0a01430b/raster/msavi.png",
+        "ndmi": "/api/v1/gis/plot/fa0094b2-c218-441d-bc1a-870f0a01430b/raster/ndmi.png",
+        "ndwi": "/api/v1/gis/plot/fa0094b2-c218-441d-bc1a-870f0a01430b/raster/ndwi.png"
+      },
+      "geotiff_path": "rasters/fa0094b2-c218-441d-bc1a-870f0a01430b/20241012_s2b_l2a_indices.tif"
+    },
+    "weather": {
+      "farm_matches": true,
+      "temperature_c": 31.6,
+      "timezone": "Asia/Kolkata",
+      "cache_entries": 3
+    }
+  }
+]

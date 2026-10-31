@@ -41,6 +41,7 @@ async function main(){
   assert.throws(()=>createNativeGISDocument('file:///private'));
   assert.throws(()=>createNativeGISDocument('https://user:secret@example.com'));
   assert(!html.includes(payload.token));
+  assert(html.includes('attributionControl:false'),'Attribution is moved to the React Native footer');
   const malicious='</script><script>throw new Error("injected")</script>\u2028';
   assert(!scriptJSON(malicious).includes('<'));
   assert.equal(JSON.parse(scriptJSON(malicious)),malicious);
@@ -65,7 +66,7 @@ async function main(){
   const average=harness();
   average.window.updateFarmMap({...payload,mode:'A'});
   assert.equal(average.state.requests.length,0);
-  assert.equal(average.state.polygons[0].options.fillOpacity,0.5);
+  assert.equal(average.state.polygons[0].options.fillOpacity,0.25);
   average.window.updateFarmMap({...payload,mode:'A',captureDate:null,indexValue:null});
   assert.equal(average.state.polygons.at(-1).options.fillOpacity,0,'Unobserved fields must have no invented colour');
 

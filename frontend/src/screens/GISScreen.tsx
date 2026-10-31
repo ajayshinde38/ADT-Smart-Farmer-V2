@@ -1,3 +1,4 @@
+import { FarmPage } from '../components/FarmPage';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
@@ -147,7 +148,7 @@ const INDEX_CONFIG: Record<
   },
 };
 
-type IndexKey = keyof typeof INDEX_CONFIG;
+type IndexKey = 'ndvi' | 'evi' | 'ndre' | 'msavi' | 'ndmi' | 'ndwi';
 
 export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
   const t = translations[language];
@@ -161,6 +162,8 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
   const [overlayVisible, setOverlayVisible] = useState(true);
   const [mapMode, setMapMode] = useState<'A' | 'B'>('B');
   const [updating, setUpdating] = useState(false);
+  const [generatingIndex, setGeneratingIndex] = useState<IndexKey | null>(null);
+  const [rasterNotice, setRasterNotice] = useState('');
   const [updateNotice, setUpdateNotice] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [fullScreen, setFullScreen] = useState(false);
@@ -176,6 +179,8 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
     setShowHistory(false);
     setUpdateNotice('');
     setUpdating(false);
+    setGeneratingIndex(null);
+    setRasterNotice('');
 
     if (!farmer.farm_id) {
       setLoading(false);
@@ -200,7 +205,7 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
   }, [farmer.farm_id, retry]);
 
   const updateObservation = async () => {
-    if (!farmer.farm_id || updating) return;
+    if (!farmer.farm_id || updating || generatingIndex !== null) return;
     const request = generation.current;
     setUpdating(true);
     setUpdateNotice('');
@@ -214,8 +219,8 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
             ? 'उपलब्ध उपग्रह निरीक्षण अद्ययावत केले.'
             : 'Satellite observation updated from Sentinel-2.'
           : mr
-          ? 'तपासलेल्या कालावधीत नवे ढगविरहित निरीक्षण मिळाले नाही.'
-          : 'No new cloud-free observation found in the checked period.'
+            ? 'तपासलेल्या कालावधीत नवे ढगविरहित निरीक्षण मिळाले नाही.'
+            : 'No new cloud-free observation found in the checked period.'
       );
     } catch {
       if (request === generation.current)
@@ -229,16 +234,57 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
     }
   };
 
-  const getIndexVal = (key: IndexKey): number => {
+  const generateSelectedRaster = async () => {
+    if (!farmer.farm_id || updating || generatingIndex !== null) return;
+
+    // The backend processes the index which was selected when the user tapped.
+    // No other farm or index is processed automatically.
+    const farmId = farmer.farm_id;
+    const indexToGenerate = selectedIndex;
+    const request = generation.current;
+
+    setGeneratingIndex(indexToGenerate);
+    setRasterNotice('');
+
+    try {
+      const updated = await ApiClient.generateGISRaster(farmId, indexToGenerate);
+      if (request !== generation.current) return;
+
+      setData(updated);
+
+      if (hasRasterForIndex({ activeIndex: indexToGenerate, rasterInfo: updated.raster })) {
+        setMapMode('B');
+        setOverlayVisible(true);
+        setRasterNotice(
+          mr
+            ? `${indexToGenerate.toUpperCase()} चा वास्तविक उपग्रह थर उपलब्ध आहे.`
+            : `${indexToGenerate.toUpperCase()} spatial imagery is available. The map is now showing real satellite pixels.`
+        );
+      } else {
+        setRasterNotice(
+          mr
+            ? 'विनंती पूर्ण झाली, परंतु नकाशासाठी उपग्रह थर अद्याप उपलब्ध नाही.'
+            : 'Generation returned, but no usable spatial layer was advertised. The field average remains visible.'
+        );
+      }
+    } catch (error) {
+      if (request !== generation.current) return;
+
+      const detail = error instanceof Error ? error.message : '';
+      setRasterNotice(
+        mr
+          ? `उपग्रह थर तयार झाला नाही. ${detail || 'कृपया नंतर पुन्हा प्रयत्न करा.'}`
+          : `Satellite layer was not generated. ${detail || 'Please try again later.'}`
+      );
+    } finally {
+      if (request === generation.current) setGeneratingIndex(null);
+    }
+  };
+
+  const getIndexVal = (key: IndexKey): number | null => {
     const val = data?.indices ? (data.indices as any)[key] : null;
     if (typeof val === 'number' && Number.isFinite(val)) return val;
-    // Default fallback based on canonical farm values
-    if (key === 'ndvi') return 0.82;
-    if (key === 'evi') return 0.68;
-    if (key === 'ndre') return 0.45;
-    if (key === 'msavi') return 0.74;
-    if (key === 'ndmi') return 0.38;
-    return 0.5;
+    return null;
   };
 
   const activeIndex = selectedIndex;
@@ -247,23 +293,20 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
 
   const spatial = mapMode === 'B' && hasRasterForIndex({ activeIndex, rasterInfo: data?.raster });
   const observationDate = spatial ? data?.raster?.acquisition_date : data?.indices?.capture_date;
-  const cloudPct = data?.indices?.cloud_coverage_pct ?? 0;
+  const cloudPct = spatial ? null : data?.indices?.cloud_coverage_pct ?? null;
+  const rasterHistorical = spatial && !!observationDate && Date.now() - Date.parse(observationDate) > 30 * 86400000;
 
   const dateCaption = observationDate
     ? new Date(`${observationDate}T12:00:00+05:30`).toLocaleDateString(mr ? 'mr-IN' : 'en-IN', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        timeZone: 'Asia/Kolkata',
-      })
-    : (mr ? '१२ ऑक्टोबर २०२६' : '12 Oct 2026');
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'Asia/Kolkata',
+    })
+    : (mr ? 'निरीक्षण उपलब्ध नाही' : 'No observation available');
 
-  const getStatusText = (key: IndexKey, val: number): string => {
-    const cfg = INDEX_CONFIG[key];
-    if (val >= 0.6) return mr ? cfg.statusOptimalMr : cfg.statusOptimalEn;
-    if (val >= 0.35) return mr ? cfg.statusModerateMr : cfg.statusModerateEn;
-    return mr ? cfg.statusLowMr : cfg.statusLowEn;
-  };
+  const getStatusText = (_key: IndexKey, val: number | null): string =>
+    val == null ? (mr ? 'नोंद नाही' : 'No observation') : (mr ? 'नोंदवलेला निर्देशांक' : 'Recorded index');
 
   const renderMap = (mapHeight: number) => (
     <View style={styles.mapContainer}>
@@ -272,7 +315,7 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
         geojson={data?.geometry}
         farmerName={farmer.name}
         farmId={farmer.farm_id}
-        areaAcres={data?.area_acres || farmer.farm_area_acres || 1.86}
+        areaAcres={data?.area_acres ?? farmer.farm_area_acres}
         latitude={data?.latitude}
         longitude={data?.longitude}
         activeIndex={activeIndex}
@@ -291,42 +334,21 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
         <View style={styles.layerActivePill}>
           <View style={styles.pulseDot} />
           <Text style={styles.layerActiveText}>
-            Layer: {activeCfg.nameEn} ({activeCfg.fullNameEn.split(' ')[0]})
+            {spatial
+              ? `${activeCfg.nameEn} · ${rasterHistorical ? (mr ? 'ऐतिहासिक दृश्य' : 'Historical image') : (mr ? 'उपग्रह प्रतिमा' : 'Spatial image')}`
+              : activeVal == null
+                ? (mr ? 'फक्त शेताची हद्द' : 'Boundary only')
+                : `${activeCfg.nameEn} · ${mr ? 'सरासरी' : 'Average'}`}
           </Text>
         </View>
 
         <View style={styles.cloudPill}>
           <Icon name="cloud-done" size={13} color="#6ee7b7" />
-          <Text style={styles.cloudText}>Cloud: {cloudPct}%</Text>
+          <Text style={styles.cloudText}>{mr ? 'ढग' : 'Cloud'}: {cloudPct == null ? '—' : `${cloudPct}%`}</Text>
         </View>
       </View>
 
-      {/* Floating Bottom Spectral Health Gradient Legend matching Stitch */}
-      <View style={styles.mapLegendOverlay} pointerEvents="box-none">
-        <View style={styles.legendHeader}>
-          <View style={styles.legendHeaderLeft}>
-            <Icon name="tune" size={14} color="#6ee7b7" />
-            <Text style={styles.legendTitle}>{mr ? 'इंडेक्स स्पेक्ट्रम' : 'Index Spectrum'}</Text>
-          </View>
-          <Text style={styles.legendRange}>0.00 – 1.00</Text>
-        </View>
 
-        {/* Gradient bar: Red -> Amber -> Lime -> Emerald */}
-        <View style={styles.legendGradientBar}>
-          <View style={[styles.gradSeg, { backgroundColor: '#dc2626', flex: 20 }]} />
-          <View style={[styles.gradSeg, { backgroundColor: '#f59e0b', flex: 25 }]} />
-          <View style={[styles.gradSeg, { backgroundColor: '#a3e635', flex: 25 }]} />
-          <View style={[styles.gradSeg, { backgroundColor: '#059669', flex: 30 }]} />
-        </View>
-
-        <View style={styles.legendTicks}>
-          <Text style={styles.legendTickText}>0.0 {mr ? 'तीव्र ताण' : 'Severe Stress'}</Text>
-          <Text style={styles.legendTickText}>0.4 {mr ? 'मध्यम' : 'Moderate'}</Text>
-          <Text style={styles.legendTickGreen}>
-            {activeVal.toFixed(2)} {mr ? 'दाट पीक' : 'Dense Crop'}
-          </Text>
-        </View>
-      </View>
     </View>
   );
 
@@ -337,18 +359,20 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
       </View>
     );
 
-  const secondaryIndices: IndexKey[] = (['ndvi', 'evi', 'ndre', 'msavi', 'ndmi'] as IndexKey[]).filter(
+  if (error || !data) return <FarmPage page="gis" style={styles.page} contentContainerStyle={styles.content}><View style={styles.center}><Text>{mr ? 'शेताचा नकाशा मिळाला नाही.' : 'Farm map unavailable.'}</Text><TouchableOpacity accessibilityRole="button" style={styles.expandBtn} onPress={() => setRetry(x => x + 1)}><Text>{mr ? 'पुन्हा प्रयत्न' : 'Retry'}</Text></TouchableOpacity></View></FarmPage>;
+
+  const secondaryIndices: IndexKey[] = (['ndvi', 'evi', 'ndre', 'msavi', 'ndmi', 'ndwi'] as IndexKey[]).filter(
     (k) => k !== activeIndex
   );
 
   return (
     <>
-      <ScrollView style={styles.page} contentContainerStyle={styles.content}>
+      <FarmPage page="gis" style={styles.page} contentContainerStyle={styles.content}>
         {/* Header Row */}
         <View style={styles.titleRow}>
           <Text style={styles.screenTitle}>{t.myFarm}</Text>
           <Text style={styles.areaBadge}>
-            {data?.area_acres ?? farmer.farm_area_acres ?? '1.86'} {t.acres}
+            {data?.area_acres ?? farmer.farm_area_acres ?? '—'} {t.acres}
           </Text>
         </View>
 
@@ -361,7 +385,7 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
             <Icon name="event" size={14} color="#64748b" />
             <Text style={styles.obsDateText}>
               {mr ? 'उपग्रह निरीक्षण: ' : 'Observed: '}
-              {dateCaption}
+              {dateCaption}{rasterHistorical ? (mr ? " · ऐतिहासिक दृश्य" : " · Historical imagery") : ""}
             </Text>
           </View>
           <TouchableOpacity
@@ -380,7 +404,7 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
           <View style={styles.indicesHeaderLeft}>
             <View style={styles.greenHeaderDot} />
             <Text style={styles.indicesHeading}>
-              {mr ? '५ उपग्रह रिमोट सेन्सिंग निर्देशांक' : '5 Satellite Telemetry Indices'}
+              {mr ? '६ उपग्रह रिमोट सेन्सिंग निर्देशांक' : '6 Satellite Indices'}
             </Text>
           </View>
           <Text style={styles.tapToSwitchText}>
@@ -390,17 +414,19 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
 
         {/* 5 Index Pills Strip */}
         <View style={styles.pillsRow}>
-          {(['ndvi', 'evi', 'ndre', 'msavi', 'ndmi'] as IndexKey[]).map((key) => {
+          {(['ndvi', 'evi', 'ndre', 'msavi', 'ndmi', 'ndwi'] as IndexKey[]).map((key) => {
             const isSelected = key === activeIndex;
             const val = getIndexVal(key);
             return (
               <TouchableOpacity
                 key={key}
                 accessibilityRole="button"
-                accessibilityState={{ selected: isSelected }}
+                accessibilityState={{ selected: isSelected, disabled: generatingIndex !== null }}
+                disabled={generatingIndex !== null}
                 onPress={() => {
                   setSelectedIndex(key);
                   setOverlayVisible(true);
+                  setRasterNotice('');
                 }}
                 style={[styles.indexPill, isSelected && styles.indexPillActive]}
                 activeOpacity={0.8}
@@ -410,7 +436,7 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
                 </Text>
                 <View style={[styles.indexPillValBadge, isSelected && styles.indexPillValBadgeActive]}>
                   <Text style={[styles.indexPillValText, isSelected && styles.indexPillValTextActive]}>
-                    {val.toFixed(2)}
+                    {val?.toFixed(2) ?? '—'}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -444,12 +470,12 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
 
           <View style={styles.spotlightValRow}>
             <View style={styles.valWithRange}>
-              <Text style={styles.spotlightBigVal}>{activeVal.toFixed(2)}</Text>
-              <Text style={styles.spotlightRange}>{activeCfg.safeRange}</Text>
+              <Text style={styles.spotlightBigVal}>{activeVal?.toFixed(2) ?? '—'}</Text>
+              <Text style={styles.spotlightRange}>{mr ? '−1 ते +1 · निर्देशांक' : '−1 to +1 · index'}</Text>
             </View>
             <View style={styles.deltaBadge}>
               <Icon name="trending-up" size={14} color="#6ee7b7" />
-              <Text style={styles.deltaText}>+4% vs 10d ago</Text>
+              <Text style={styles.deltaText}>{data?.indices?.capture_date ? shortDate(data.indices.capture_date, language) : '—'}</Text>
             </View>
           </View>
 
@@ -458,13 +484,13 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
             <View
               style={[
                 styles.spotlightGaugeFill,
-                { width: `${Math.max(10, Math.min(100, Math.round(activeVal * 100)))}%` },
+                { width: `${activeVal == null ? 0 : Math.max(0, Math.min(100, Math.round((activeVal + 1) * 50)))}%` },
               ]}
             />
           </View>
 
           <Text style={styles.spotlightDesc}>
-            {mr ? activeCfg.descMr : activeCfg.descEn}
+            {mr ? 'उपग्रहावरील परावर्तनाचा निर्देशांक. ही मातीची चाचणी किंवा रोगाचे निदान नाही. नोंदीची तारीख पाहून शेतात पडताळा.' : 'Satellite reflectance index. This is not a soil test or disease diagnosis. Check the observation date and verify conditions in the field.'}
           </Text>
         </View>
 
@@ -474,15 +500,17 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
             const cfg = INDEX_CONFIG[key];
             const val = getIndexVal(key);
             const status = getStatusText(key, val);
-            const isAlert = key === 'ndmi' && val < 0.4;
+            const isAlert = false;
 
             return (
               <TouchableOpacity
                 key={key}
                 accessibilityRole="button"
+                disabled={generatingIndex !== null}
                 onPress={() => {
                   setSelectedIndex(key);
                   setOverlayVisible(true);
+                  setRasterNotice('');
                 }}
                 style={[styles.secondaryCard, isAlert && styles.secondaryCardAlert]}
                 activeOpacity={0.85}
@@ -498,7 +526,7 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
                 </View>
 
                 <View style={styles.secondaryValRow}>
-                  <Text style={styles.secondaryValText}>{val.toFixed(2)}</Text>
+                  <Text style={styles.secondaryValText}>{val?.toFixed(2) ?? '—'}</Text>
                   <Text
                     style={[
                       styles.secondaryStatusText,
@@ -506,7 +534,7 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
                     ]}
                     numberOfLines={1}
                   >
-                    {status.split(' ')[0]}
+                    {status}
                   </Text>
                 </View>
 
@@ -518,12 +546,18 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
           })}
         </View>
 
+        <View style={styles.refreshBlock}>
+          <Text style={styles.refreshNote}>{mr ? 'वरील सरासरी निर्देशांकांची तारीख' : 'Index averages observed'}: {data?.indices?.capture_date || '—'}. {rasterHistorical ? (mr ? 'नकाशातील जुने दृश्य सध्याची पीक स्थिती दर्शवत नाही.' : 'The historical map image does not show current crop conditions.') : ''}</Text>
+          <TouchableOpacity style={styles.expandBtn} accessibilityRole="button" onPress={() => setShowHistory(!showHistory)}><Text style={styles.expandBtnText}>{mr ? 'निरीक्षण इतिहास' : 'Observation history'} {showHistory ? '−' : '+'}</Text></TouchableOpacity>
+          {showHistory && (data?.field_context?.satellite.history.length ? data.field_context.satellite.history.map((entry, i) => <Text key={i} style={styles.refreshNote}>{entry.date} · NDVI {entry.ndvi?.toFixed(2) ?? '—'} · NDRE {entry.ndre?.toFixed(2) ?? '—'} · NDMI {entry.ndmi?.toFixed(2) ?? '—'}</Text>) : <Text style={styles.refreshNote}>{mr ? 'नोंदवलेला इतिहास नाही.' : 'No recorded observation history.'}</Text>)}
+        </View>
+
         {/* Satellite Refresh Button & Observation Check */}
         <View style={styles.refreshBlock}>
           <TouchableOpacity
             accessibilityRole="button"
             style={styles.refreshBtn}
-            disabled={updating}
+            disabled={updating || generatingIndex !== null}
             onPress={updateObservation}
             activeOpacity={0.8}
           >
@@ -534,18 +568,50 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
                   ? 'निरीक्षण तपासत आहे…'
                   : 'Checking Copernicus…'
                 : mr
-                ? 'नवे उपग्रह निरीक्षण तपासा'
-                : 'Check Sentinel-2 Observation'}
+                  ? 'नवे उपग्रह निरीक्षण तपासा'
+                  : 'Check Sentinel-2 Observation'}
             </Text>
           </TouchableOpacity>
           <Text style={styles.refreshNote}>
             {mr
               ? 'शेताची हद्द युरोपियन स्पेस एजन्सी (Copernicus) कडे पाठवून रिमोट सेन्सिंग डेटा मिळवला जातो.'
-              : 'Verifies real multispectral reflectance from Sentinel-2 L2A for this farm.'}
+              : 'Sends this farm boundary to Copernicus to check Sentinel-2 observations.'}
           </Text>
           {!!updateNotice && <Text style={styles.noticeText}>{updateNotice}</Text>}
         </View>
-      </ScrollView>
+
+        {/* Explicit, one-index-at-a-time real satellite raster request. */}
+        <View style={styles.refreshBlock}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityState={{ disabled: generatingIndex !== null || updating || !data?.indices?.capture_date }}
+            onPress={generateSelectedRaster}
+            disabled={generatingIndex !== null || updating || !data?.indices?.capture_date}
+            activeOpacity={0.8}
+            style={[
+              styles.rasterGenerateBtn,
+              (generatingIndex !== null || updating || !data?.indices?.capture_date) && styles.rasterGenerateBtnDisabled,
+            ]}
+          >
+            {generatingIndex !== null ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <Icon name="satellite-alt" size={18} color="#ffffff" />
+            )}
+            <Text style={styles.refreshBtnText}>
+              {generatingIndex !== null
+                ? (mr ? `${generatingIndex.toUpperCase()} थर तयार होत आहे…` : `Generating ${generatingIndex.toUpperCase()} imagery…`)
+                : (mr ? `${activeIndex.toUpperCase()} उपग्रह थर तयार करा` : `Generate ${activeIndex.toUpperCase()} Satellite Layer`)}
+            </Text>
+          </TouchableOpacity>
+          <Text style={styles.refreshNote}>
+            {mr
+              ? 'निवडलेल्या निर्देशांकासाठी Copernicus कडून वास्तविक पिक्सेल मागवले जातील. प्रक्रिया वेळ आणि सेवा वापर लागू होऊ शकतो.'
+              : 'Requests real Sentinel-2 pixels for the selected index only. This may take time and use Copernicus processing quota.'}
+          </Text>
+          {!!rasterNotice && <Text style={styles.noticeText}>{rasterNotice}</Text>}
+        </View>
+      </FarmPage>
 
       {/* Full-screen Map Modal */}
       <Modal visible={fullScreen} animationType="slide" onRequestClose={() => setFullScreen(false)}>
@@ -1013,6 +1079,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 6,
     elevation: 2,
+  },
+  rasterGenerateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#006b65',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 14,
+    minHeight: 46,
+  },
+  rasterGenerateBtnDisabled: {
+    opacity: 0.5,
   },
   refreshBtnText: {
     fontSize: 13,

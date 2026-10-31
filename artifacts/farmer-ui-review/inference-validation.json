@@ -1,0 +1,6 @@
+{
+  "test": "synthetic transport/model smoke; not diagnostic accuracy",
+  "status": "not_detected",
+  "elapsed_seconds": 24.94,
+  "peak_rss_mib": 449.0
+}

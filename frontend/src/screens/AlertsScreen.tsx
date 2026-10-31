@@ -1,3 +1,4 @@
+import { FarmPage } from '../components/FarmPage';
 import React, { useEffect, useState } from 'react';
 import {
   ScrollView,
@@ -65,7 +66,7 @@ export const AlertsScreen: React.FC<Props> = ({ farmer, language, onNavigate }) 
   ] as const;
 
   return (
-    <ScrollView style={styles.page} contentContainerStyle={styles.content}>
+    <FarmPage page="alerts" style={styles.page} contentContainerStyle={styles.content}>
       {/* Category Pills Row */}
       <View style={styles.filterRow}>
         {filterTabs.map((tab) => {
@@ -235,7 +236,7 @@ export const AlertsScreen: React.FC<Props> = ({ farmer, language, onNavigate }) 
           </View>
         </TouchableOpacity>
       )}
-    </ScrollView>
+    </FarmPage>
   );
 };
 

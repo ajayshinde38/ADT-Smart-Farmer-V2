@@ -1,3 +1,4 @@
+import { FarmPage } from '../components/FarmPage';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
@@ -29,13 +30,16 @@ interface Props {
 export const PestDetectionScreen: React.FC<Props> = ({ farmer, language, onWeather }) => {
   const mr = language === 'mr';
   const [loading, setLoading] = useState(false);
+  const [pendingPhoto, setPendingPhoto] = useState<{file: any; uri: string} | null>(null);
   const [result, setResult] = useState<DiseaseDetectionResult | null>(null);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [showOverlay, setShowOverlay] = useState(false);
+  const scanInFlight = useRef(false);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [context, setContext] = useState<FieldContext | null>(null);
   const [history, setHistory] = useState<HistoryData | null>(null);
-  const [saveHistory, setSaveHistory] = useState(true);
+  const [saveHistory, setSaveHistory] = useState(false);
   const [torchActive, setTorchActive] = useState(false);
   const [cameraFacing, setCameraFacing] = useState<'back' | 'front'>('back');
   const [pesticidesModal, setPesticidesModal] = useState(false);
@@ -45,6 +49,9 @@ export const PestDetectionScreen: React.FC<Props> = ({ farmer, language, onWeath
 
   useEffect(() => {
     let active = true;
+    setPendingPhoto(null);
+    setShowOverlay(false);
+    scanInFlight.current = false;
     setWeather(null);
     setContext(null);
     setLoading(false);
@@ -90,11 +97,17 @@ export const PestDetectionScreen: React.FC<Props> = ({ farmer, language, onWeath
     }
   }, [previewUri]);
 
-  const scan = async (form: FormData, uri: string) => {
+  const scan = async (photo: {file: any; uri: string}) => {
+    if (scanInFlight.current) return;
+    scanInFlight.current = true;
+    const form = new FormData();
+    form.append('file', photo.file);
+    const uri = photo.uri;
     if (farmer.farm_id) {
       form.append('farm_id', farmer.farm_id);
       form.append('save_history', saveHistory ? 'true' : 'false');
     }
+    setShowOverlay(false);
     const request = ++generation.current;
     setPreviewUri(uri);
     setResult(null);
@@ -103,20 +116,25 @@ export const PestDetectionScreen: React.FC<Props> = ({ farmer, language, onWeath
     try {
       const value = await ApiClient.detectDisease(form);
       if (request === generation.current) setResult(value);
-    } catch {
+    } catch (reason) {
       if (request === generation.current) {
         setError(
           mr
             ? 'फोटो तपासता आला नाही. स्पष्ट फोटो निवडून पुन्हा प्रयत्न करा.'
-            : 'Unable to analyse this photo. Try again with a clear leaf image.'
+            : reason instanceof Error && reason.name === 'AbortError'
+              ? 'Analysis timed out. The server may still be starting. Retry this photo shortly.'
+              : reason instanceof TypeError
+                ? 'Cannot reach the scan server. Check your connection, then retry this photo.'
+                : reason instanceof Error ? reason.message : 'Unable to analyse this photo. Please retry.'
         );
       }
     } finally {
-      if (request === generation.current) setLoading(false);
+      if (request === generation.current) { setLoading(false); scanInFlight.current = false; }
     }
   };
 
   const nativePhoto = async (camera: boolean) => {
+    const selectionGeneration = generation.current;
     try {
       if (camera) {
         const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -140,20 +158,20 @@ export const PestDetectionScreen: React.FC<Props> = ({ farmer, language, onWeath
             quality: 0.85,
           });
 
-      if (photo.canceled || !photo.assets?.[0]) return;
+      if (selectionGeneration !== generation.current || photo.canceled || !photo.assets?.[0]) return;
       const asset = photo.assets[0];
       if ((asset.fileSize || 0) > 8 * 1024 * 1024) {
         setError(mr ? '८ MB पेक्षा लहान फोटो निवडा.' : 'Choose an image smaller than 8 MB.');
         return;
       }
-      const form = new FormData();
-      form.append('file', {
-        uri: asset.uri,
-        name: asset.fileName || 'leaf.jpg',
-        type: asset.mimeType || 'image/jpeg',
-      } as any);
-      await scan(form, asset.uri);
-    } catch {
+      setPendingPhoto({file: {
+        uri: asset.uri, name: asset.fileName || 'leaf.jpg', type: asset.mimeType || 'image/jpeg',
+      }, uri: asset.uri});
+      setShowOverlay(false);
+      setPreviewUri(asset.uri);
+      setResult(null);
+      setError('');
+    } catch (reason) {
       setError(mr ? 'फोटो उघडता आला नाही.' : 'Unable to open camera or image library.');
     }
   };
@@ -176,23 +194,27 @@ export const PestDetectionScreen: React.FC<Props> = ({ farmer, language, onWeath
       setError(mr ? '८ MB पेक्षा लहान फोटो निवडा.' : 'Choose an image smaller than 8 MB.');
       return;
     }
-    const form = new FormData();
-    form.append('file', file);
-    await scan(form, URL.createObjectURL(file));
+
+    const uri = URL.createObjectURL(file);
+    setPendingPhoto({file, uri});
+    setShowOverlay(false);
+    setPreviewUri(uri);
+    setResult(null);
+    setError('');
   };
 
   const detected = result?.status === 'disease_detected' && result.disease_details != null;
   const details = detected ? result?.disease_details : null;
-  const confidencePct = result ? Math.round(result.confidence_score * 100) : 94;
+  const confidencePct = result ? Math.round(result.confidence_score * 100) : 0;
 
   const diseaseTitle = detected
     ? (mr ? result.marathi_name : result.detected_disease)
-    : (mr ? 'तपकिरी तांबेरा / करपा' : 'Brown Spot / Leaf Blight');
+    : (mr ? 'समर्थित रोग आढळला नाही' : 'No supported disease identified');
 
-  const pathogenName = details?.pathogen || 'Bipolaris oryzae / Puccinia melanocephala';
+  const pathogenName = details?.pathogen || (mr ? 'याचा अर्थ पीक निरोगी आहे असा नाही' : 'This does not establish a healthy crop');
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <FarmPage page="scan" style={styles.container} contentContainerStyle={styles.content}>
       {Platform.OS === 'web' && (
         <input
           ref={fileInputRef}
@@ -208,8 +230,8 @@ export const PestDetectionScreen: React.FC<Props> = ({ farmer, language, onWeath
         <Text style={styles.title}>{mr ? 'पीक तपासणी व रोगनिदान' : 'AI Crop Care & Pest Scan'}</Text>
         <Text style={styles.subtitle}>
           {mr
-            ? 'पानाचा फोटो काढून किंवा निवडून रोगाची तात्काळ तपासणी करा'
-            : 'Aim camera at leaf lesion or select a photo for immediate AI diagnosis'}
+            ? 'पानाचा फोटो काढून किंवा निवडून मॉडेलद्वारे तपासणी करा'
+            : 'Aim camera at leaf lesion or select a photo for AI assessment'}
         </Text>
       </View>
 
@@ -218,9 +240,9 @@ export const PestDetectionScreen: React.FC<Props> = ({ farmer, language, onWeath
         {/* Viewfinder Image or Placeholder */}
         {previewUri ? (
           <Image
-            source={{ uri: previewUri }}
+            source={{ uri: showOverlay && result?.overlay_data_url ? result.overlay_data_url : previewUri }}
             style={styles.viewfinderImg}
-            resizeMode="cover"
+            resizeMode="contain"
           />
         ) : (
           <View style={styles.viewfinderPlaceholder}>
@@ -237,7 +259,7 @@ export const PestDetectionScreen: React.FC<Props> = ({ farmer, language, onWeath
         <View style={styles.topControlsRow} pointerEvents="box-none">
           <TouchableOpacity
             accessibilityRole="button"
-            onPress={() => setTorchActive((x) => !x)}
+            onPress={() => Alert.alert(mr ? 'फ्लॅश' : 'Flash', mr ? 'फोटो घेताना कॅमेऱ्यातील फ्लॅश नियंत्रण वापरा.' : 'Use the flash control in the camera when taking your photo.')}
             style={[styles.glassCircleBtn, torchActive && styles.glassCircleBtnActive]}
             activeOpacity={0.8}
           >
@@ -287,7 +309,7 @@ export const PestDetectionScreen: React.FC<Props> = ({ farmer, language, onWeath
         </View>
 
         {/* Floating Live Detection HUD Tag matching Stitch */}
-        {(detected || !previewUri) && (
+        {(result != null) && (
           <View style={styles.hudOverlay} pointerEvents="box-none">
             <View style={styles.hudCard}>
               <View style={styles.hudLeft}>
@@ -299,19 +321,19 @@ export const PestDetectionScreen: React.FC<Props> = ({ farmer, language, onWeath
                     <Text style={styles.hudDiseaseTitle} numberOfLines={1}>
                       {diseaseTitle}
                     </Text>
-                    <View style={styles.stagePill}>
-                      <Text style={styles.stagePillText}>Stage 2</Text>
-                    </View>
+                    {detected && <View style={styles.stagePill}>
+                      <Text style={styles.stagePillText}>{result?.severity_level || '—'}</Text>
+                    </View>}
                   </View>
                   <Text style={styles.hudPathogenText} numberOfLines={1}>
-                    {pathogenName} • {confidencePct}% Match
+                    {pathogenName}{detected ? ` · ${confidencePct}%` : ''}
                   </Text>
                 </View>
               </View>
 
               <View style={styles.hudRight}>
-                <Text style={styles.hudConfidenceVal}>{confidencePct}%</Text>
-                <Text style={styles.hudConfidenceLabel}>Confidence</Text>
+                <Text style={styles.hudConfidenceVal}>{detected ? `${confidencePct}%` : (mr ? 'तपासा' : 'Review')}</Text>
+                <Text style={styles.hudConfidenceLabel}>{detected ? (mr ? 'मॉडेल गुण' : 'Model score') : (mr ? 'मर्यादित मॉडेल' : 'Limited scope')}</Text>
               </View>
             </View>
           </View>
@@ -368,6 +390,22 @@ export const PestDetectionScreen: React.FC<Props> = ({ farmer, language, onWeath
         </View>
       </View>
 
+      {!!result?.overlay_data_url && <TouchableOpacity accessibilityRole="button"
+        style={styles.pesticidesBtn} onPress={() => setShowOverlay(value => !value)}>
+        <Text style={styles.pesticidesBtnText}>{showOverlay
+          ? (mr ? 'मूळ फोटो पहा' : 'Show original photo')
+          : (mr ? 'मॉडेलने दर्शवलेले क्षेत्र पहा' : 'Show model overlay')}</Text>
+      </TouchableOpacity>}
+      {pendingPhoto && !loading && (
+        <TouchableOpacity accessibilityRole="button" style={styles.pesticidesBtn}
+          onPress={() => { void scan(pendingPhoto); }}>
+          <Icon name="search" size={20} color="#ffffff" />
+          <Text style={styles.pesticidesBtnText}>{error ? (mr ? 'पुन्हा प्रयत्न करा' : 'Retry this photo') : (mr ? 'या फोटोचे विश्लेषण करा' : 'Analyze this photo')}</Text>
+        </TouchableOpacity>
+      )}
+      {loading && <Text accessibilityLiveRegion="polite" style={styles.subtitle}>
+        {mr ? 'फोटो तपासत आहोत. सर्व्हर सुरू होण्यास वेळ लागू शकतो.' : 'Analyzing your photo. A cold server may take longer to respond.'}
+      </Text>}
       {/* Error Notice */}
       {!!error && (
         <View style={styles.errorBanner}>
@@ -385,16 +423,16 @@ export const PestDetectionScreen: React.FC<Props> = ({ farmer, language, onWeath
             </View>
             <View>
               <Text style={styles.adviceTitle}>
-                {mr ? 'तात्काळ उपाययोजना सल्ला' : 'Immediate Action Advice'}
+                {mr ? 'पीक तपासणी मार्गदर्शन' : 'Crop Check Guidance'}
               </Text>
               <Text style={styles.adviceSub}>
-                {mr ? 'प्लॉट अ • शिफारस केलेले उपचार' : 'Plot A • Recommended Treatment'}
+                {farmer.name}
               </Text>
             </View>
           </View>
           <View style={styles.actionNeededPill}>
             <Text style={styles.actionNeededText}>
-              {mr ? 'कृती आवश्यक' : 'Action Needed'}
+              {detected ? (mr ? 'पडताळा करा' : 'Verify finding') : (mr ? 'फोटो तपासणी' : 'Photo check')}
             </Text>
           </View>
         </View>
@@ -407,10 +445,10 @@ export const PestDetectionScreen: React.FC<Props> = ({ farmer, language, onWeath
               {mr ? 'त्वरित सल्ला: ' : 'Quick Advice: '}
             </Text>
             {details
-              ? (mr ? details.chemical_control_mr : details.chemical_control)
+              ? (mr ? details.prevention_mr : details.prevention)
               : mr
-              ? 'बाधित पाने वेगळी करा आणि स्वच्छ सकाळी मॅन्कोझेब ७५% WP (२ ग्रॅम/लिटर) फवारा. पोटॅश खताची योग्य मात्रा राखा.'
-              : 'Isolate infected plants and spray Mancozeb 75% WP at 2g/L water during clear morning hours. Ensure adequate potassium balance.'}
+              ? 'स्पष्ट पानाचा फोटो निवडा. मॉडेल फक्त तपकिरी तांबेरा, मोझॅक आणि लाल कुज तपासते. रोग न आढळणे म्हणजे पीक निरोगी असल्याची खात्री नाही.'
+              : 'Choose a clear leaf photo. The model checks Brown Rust, Mosaic and Red Rot only. No supported detection does not confirm a healthy crop.'}
           </Text>
         </View>
 
@@ -424,7 +462,7 @@ export const PestDetectionScreen: React.FC<Props> = ({ farmer, language, onWeath
           >
             <Icon name="science" size={16} color="#ffffff" />
             <Text style={styles.pesticidesBtnText}>
-              {mr ? 'कीटकनाशके पाहा' : 'View Pesticides'}
+              {mr ? 'तपशील पाहा' : 'View Guidance'}
             </Text>
           </TouchableOpacity>
 
@@ -433,8 +471,8 @@ export const PestDetectionScreen: React.FC<Props> = ({ farmer, language, onWeath
             style={styles.agronomistBtn}
             onPress={() =>
               Alert.alert(
-                'Kisan Agronomist Line',
-                'Call toll-free expert consultation at 1800-180-1551 or your local KVK coordinator.'
+                mr ? 'कृषी तज्ज्ञ' : 'Agronomist review',
+                mr ? 'फोटो व प्रत्यक्ष लक्षणे आपल्या स्थानिक KVK किंवा कृषी तज्ज्ञांना दाखवा.' : 'Show the photo and field symptoms to your local KVK or agronomist before selecting treatment.'
               )
             }
             activeOpacity={0.85}
@@ -447,6 +485,7 @@ export const PestDetectionScreen: React.FC<Props> = ({ farmer, language, onWeath
         </View>
       </View>
 
+      {result && <View style={styles.quickAdviceBox}><Text style={styles.quickAdviceText}>{mr ? 'अंदाजित बाधित क्षेत्र' : 'Estimated affected image area'}: {result.affected_percentage.toFixed(1)}% · {result.history_note || (result.record_saved ? (mr ? 'जतन केले' : 'Saved') : (mr ? 'जतन केले नाही' : 'Not saved'))}</Text></View>}
       {/* Private History Toggle */}
       <View style={styles.historyToggleCard}>
         <View style={{ flex: 1 }}>
@@ -483,12 +522,12 @@ export const PestDetectionScreen: React.FC<Props> = ({ farmer, language, onWeath
       {weather && <CropWatchCard data={weather} language={language} />}
 
       {/* Pesticides Modal */}
-      <Modal visible={pesticidesModal} transparent animationType="slide">
+      <Modal visible={pesticidesModal} transparent animationType="slide" onRequestClose={() => setPesticidesModal(false)}>
         <View style={styles.modalBg}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
-                {mr ? 'शिफारस केलेली कीटकनाशके' : 'Recommended Chemical Controls'}
+                {mr ? 'तपासणी मार्गदर्शन' : 'Scan Guidance'}
               </Text>
               <TouchableOpacity onPress={() => setPesticidesModal(false)} style={{ padding: 4 }}>
                 <Icon name="close" size={22} color="#0f172a" />
@@ -497,27 +536,15 @@ export const PestDetectionScreen: React.FC<Props> = ({ farmer, language, onWeath
 
             <ScrollView style={{ maxHeight: 380 }}>
               <View style={styles.productCard}>
-                <Text style={styles.productName}>Amistar Top</Text>
-                <Text style={styles.productIng}>Azoxystrobin 18.2% + Difenoconazole 11.4% SC</Text>
-                <Text style={styles.productDose}>Dose: 200 ml in 200 L water / acre</Text>
-              </View>
-
-              <View style={styles.productCard}>
-                <Text style={styles.productName}>Dithane M-45 (Mancozeb 75% WP)</Text>
-                <Text style={styles.productIng}>Contact fungicide for preventative disease protection</Text>
-                <Text style={styles.productDose}>Dose: 600-800 g in 200 L water / acre</Text>
-              </View>
-
-              <View style={styles.productCard}>
-                <Text style={styles.productName}>Confidor (Imidacloprid 17.8% SL)</Text>
-                <Text style={styles.productIng}>Systemic insecticide for aphid & borer vector control</Text>
-                <Text style={styles.productDose}>Dose: 60-80 ml in 200 L water / acre</Text>
+                <Text style={styles.productName}>{diseaseTitle}</Text>
+                <Text style={styles.productIng}>{details ? (mr ? details.chemical_control_mr : details.chemical_control) : (mr ? 'स्पष्ट फोटो आवश्यक. समर्थित वर्ग: तांबेरा, मोझॅक, लाल कुज.' : 'A clear photo is required. Supported classes: Brown Rust, Mosaic, Red Rot.')}</Text>
+                <Text style={styles.productDose}>{mr ? 'औषध वापरण्यापूर्वी स्थानिक तज्ज्ञ व उत्पादनाचे लेबल तपासा.' : 'Confirm treatment with a local agronomist and the registered product label.'}</Text>
               </View>
             </ScrollView>
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </FarmPage>
   );
 };
 
