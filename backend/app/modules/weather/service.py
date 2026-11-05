@@ -22,6 +22,21 @@ logger = logging.getLogger(__name__)
 _WEATHER_CACHE: Dict[str, Tuple[datetime, WeatherOverviewResponse]] = {}
 
 
+def provider_timestamp(payload):
+    """Open-Meteo current.time is local to the provider's declared UTC offset."""
+    try:
+        timestamp = datetime.fromisoformat(payload['current']['time'])
+        if timestamp.tzinfo is None:
+            offset = payload.get('utc_offset_seconds')
+            if not isinstance(offset, (int, float)) or isinstance(offset, bool) or abs(offset)>86400:
+                from zoneinfo import ZoneInfo
+                timestamp = timestamp.replace(tzinfo=ZoneInfo(payload.get('timezone', 'Asia/Kolkata')))
+            else:
+                timestamp = timestamp.replace(tzinfo=timezone(timedelta(seconds=offset)))
+        return timestamp.astimezone(timezone.utc).isoformat()
+    except (KeyError, TypeError, ValueError):
+        return ''
+
 def _redact_apikey(text: str) -> str:
     """Safely redact any Open-Meteo apikey query parameters from logs and errors."""
     if not text:
@@ -399,7 +414,8 @@ async def get_farm_weather_overview(farm_id: UUID | str) -> Optional[WeatherOver
         weather_provider=provider_name,
         source_type="Best Match NWP Model",
         forecast_timezone="Asia/Kolkata",
-        last_updated_utc=now_utc.isoformat(),
+        last_updated_utc=provider_timestamp(api_data),
+        fetched_at_utc=now_utc.isoformat(),
         is_cached=False,
         cache_expires_in_seconds=settings.OPEN_METEO_CACHE_TTL_SECONDS,
     )

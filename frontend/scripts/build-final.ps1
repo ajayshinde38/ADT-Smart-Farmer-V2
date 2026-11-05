@@ -5,7 +5,7 @@ $signingPath = Join-Path $projectRoot '.private\android-signing\signing.json'
 if (!(Test-Path -LiteralPath $signingPath)) { throw 'Signing credentials are missing. Restore the private owner backup before building.' }
 $signing = Get-Content -LiteralPath $signingPath -Raw | ConvertFrom-Json
 $env:EXPO_PUBLIC_API_BASE_URL = $ApiBaseUrl.TrimEnd('/')
-$env:ADT_BUILD_PROFILE = 'pilot'
+$env:ADT_BUILD_PROFILE = 'production'
 $env:NODE_ENV = 'production'
 $socketDirectory = Join-Path $projectRoot '.private\t'
 New-Item -ItemType Directory -Force $socketDirectory | Out-Null
@@ -32,7 +32,7 @@ try {
     Set-Location android
     & .\gradlew.bat :app:assembleRelease --console=plain --max-workers=2 '-PreactNativeArchitectures=arm64-v8a,x86_64' "-Dorg.gradle.jvmargs=$buildJvmArguments"
     if ($LASTEXITCODE -ne 0) { throw 'Android APK build failed.' }
-    $finalApkPath = "$projectRoot\artifacts\releases\ADT-Smart-Farmer-V2-Final.apk"
+    $finalApkPath = "$projectRoot\artifacts\releases\ADT-Smart-Farmer-V2-2.1.0.apk"
     Copy-Item -LiteralPath 'app\build\outputs\apk\release\app-release.apk' -Destination $finalApkPath -Force
     Write-Host "Final APK built successfully: $finalApkPath"
 } finally {

@@ -7,13 +7,14 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Linking,
+  RefreshControl,
 } from 'react-native';
 import Svg, { Path, Line, Circle } from 'react-native-svg';
 import { AppText as Text, Icon, Card, ui } from '../components/ui';
 import { Sparkline } from '../components/Sparkline';
-import { FieldConnections } from '../components/FieldConnections';
-import { freshWeather, stageLabel } from '../utils/farmPresentation';
+import { GddChart } from '../components/GddChart';
+import { VpdChart } from '../components/VpdChart';
+import { stageLabel } from '../utils/farmPresentation';
 import { CropWatchCard } from '../components/CropWatchCard';
 import { ForecastChart } from '../components/ForecastChart';
 import { translations } from '../i18n/translations';
@@ -77,9 +78,15 @@ export const WeatherScreen: React.FC<WeatherScreenProps> = ({ farmer, language, 
 
   if (loading)
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={colors.primary} size="large" />
-      </View>
+      <FarmPage page="weather" style={styles.container} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={loading} onRefresh={() => setRetry(x => x + 1)} />}>
+        <View style={styles.loadingCard} accessibilityLiveRegion="polite">
+          <WeatherMotionIcon name="wb-sunny" />
+          <Text style={styles.loadingTitle}>{mr ? 'तुमच्या शेताचे हवामान मिळवत आहे…' : 'Loading your farm weather…'}</Text>
+          <View style={{ width: '100%', gap: 12 }}>{[1, 2, 3].map(key => <View key={key} style={{ height: 22, borderRadius: 8, backgroundColor: '#dbe9df', width: key === 2 ? '70%' : '100%' }} />)}</View>
+          <ActivityIndicator color={colors.primary} size="large" />
+          <Text style={styles.loadingNote}>{mr ? 'शेताची जागा आणि Open-Meteo अंदाज तपासत आहे' : 'Checking the farm location and Open-Meteo forecast'}</Text>
+        </View>
+      </FarmPage>
     );
 
   if (!data)
@@ -131,7 +138,6 @@ export const WeatherScreen: React.FC<WeatherScreenProps> = ({ farmer, language, 
   const gamma = Number.isFinite(temp) && rh > 0 && rh <= 100 ? Math.log(rh / 100) + 17.625 * temp / (243.04 + temp) : null;
   const dewPointC = gamma == null ? null : 243.04 * gamma / (17.625 - gamma);
   const waterDemandLHa = Math.round(data.current_et0_mm * 10000);
-  const cumulativeGdd = data.cumulative_gdd_since_planting;
   const dailyGdd = data.forecast_7d_gdd != null ? (data.forecast_7d_gdd / Math.max(1, data.forecast_7_day.length)).toFixed(1) : '—';
 
   const dateLabel = (dateStr: string) =>
@@ -144,15 +150,22 @@ export const WeatherScreen: React.FC<WeatherScreenProps> = ({ farmer, language, 
 
   const hourlyLabel = (label: string) => (mr ? label.replace('Now', 'आता') : label);
 
+  const hourlyVpdItems = (data.hourly_forecast || []).slice(0, 7).map((h) => ({
+    label: hourlyLabel(h.time_label),
+    value: h.vpd_kpa,
+  }));
+  const avgHourlyVpd = hourlyVpdItems.length > 0
+    ? (hourlyVpdItems.reduce((acc, item) => acc + item.value, 0) / hourlyVpdItems.length).toFixed(2)
+    : data.current_vpd_kpa.toFixed(2);
+
   return (
-    <FarmPage page="weather" style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.sectionSubHeading}>{freshWeather(data, now) ? (mr ? 'अद्ययावत' : 'Updated') : (mr ? 'वेळ तपासा' : 'Check timestamp')} · {data.last_updated_utc ? new Date(data.last_updated_utc).toLocaleString(locale, {timeZone: timezone}) : '—'} · {data.is_cached ? (mr ? 'साठवलेली नोंद' : 'Cached') : 'Open-Meteo'}</Text>
-      {/* 1. Plot Micro-Atmosphere Hero Card matching Stitch */}
+    <FarmPage page="weather" style={styles.container} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={loading} onRefresh={() => setRetry(x => x + 1)} />}>
+      {/* 1. Plot Microclimate Hero Card matching Stitch */}
       <View style={styles.heroCard}>
         <View style={styles.heroTopRow}>
           <View>
             <Text style={styles.heroBadgeTitle}>
-              {mr ? 'शेताचे सूक्ष्म हवामान' : 'PLOT MICRO-ATMOSPHERE'}
+              {mr ? 'शेताचे सूक्ष्म हवामान' : 'PLOT MICROCLIMATE'}
             </Text>
             <View style={styles.heroTempRow}>
               <Text style={styles.heroTemp}>{Math.round(data.current_temp_c)}°C</Text>
@@ -220,25 +233,6 @@ export const WeatherScreen: React.FC<WeatherScreenProps> = ({ farmer, language, 
             <Text style={styles.telemetrySubSlate}>{amount(today?.precipitation_probability, '%', 0)} {mr ? 'शक्यता' : 'chance'}</Text>
           </View>
 
-          {/* 5: Dew Point */}
-          <View style={styles.telemetryCard}>
-            <View style={styles.telemetryCardHeader}>
-              <Icon name="thermostat" size={15} color={colors.primary} />
-              <Text style={styles.telemetryLabel}>{mr ? 'दव बिंदू' : 'Dew Point'}</Text>
-            </View>
-            <Text style={styles.telemetryValue}>{amount(dewPointC, '°C')}</Text>
-            <Text style={styles.telemetrySubGreen}>{mr ? 'तापमान व आर्द्रतेवरून' : 'Derived from T / RH'}</Text>
-          </View>
-
-          {/* 6: Pressure */}
-          <View style={styles.telemetryCard}>
-            <View style={styles.telemetryCardHeader}>
-              <Icon name="compress" size={15} color={colors.primary} />
-              <Text style={styles.telemetryLabel}>{mr ? 'वातावरण दाब' : 'Pressure'}</Text>
-            </View>
-            <Text style={styles.telemetryValue}>—</Text>
-            <Text style={styles.telemetrySubSlate}>{mr ? 'माहिती दिलेली नाही' : 'Not supplied'}</Text>
-          </View>
         </View>
       </View>
 
@@ -247,7 +241,7 @@ export const WeatherScreen: React.FC<WeatherScreenProps> = ({ farmer, language, 
         <View style={styles.sectionTitleWithIcon}>
           <Icon name="schedule" size={18} color={colors.primary} />
           <Text style={styles.sectionHeading}>
-            {mr ? 'तासागणिक जैविक अंदाज' : 'Hourly Bio-Forecast'}
+            {mr ? 'तासागणिक तापमान अंदाज' : 'Hourly Temperature Forecast'}
           </Text>
         </View>
         <Text style={styles.sectionSubBadge}>
@@ -275,18 +269,6 @@ export const WeatherScreen: React.FC<WeatherScreenProps> = ({ farmer, language, 
                 <Text style={[styles.hourlyTempText, isNow && styles.hourlyTempTextNow]}>
                   {Math.round(hour.temp_c)}°C
                 </Text>
-                <Text style={[styles.hourlyRainText, isNow && styles.hourlyRainTextNow]}>
-                  {Math.round(hour.precipitation_probability_pct)}% {mr ? 'पाऊस' : 'Rain'}
-                </Text>
-
-                <View style={[styles.hourlyMiniVpd, isNow && styles.hourlyMiniVpdNow]}>
-                  <Text style={[styles.hourlyVpdText, isNow && styles.hourlyVpdTextNow]}>
-                    {hour.vpd_kpa.toFixed(1)} kPa
-                  </Text>
-                  <Text style={[styles.hourlyWindText, isNow && styles.hourlyWindTextNow]}>
-                    {Math.round(hour.wind_speed_kmh)} km/h
-                  </Text>
-                </View>
               </View>
             );
           })}
@@ -344,13 +326,22 @@ export const WeatherScreen: React.FC<WeatherScreenProps> = ({ farmer, language, 
           </View>
         </View>
 
-        {/* Mini VPD Sparkline */}
+        {/* VPD Trajectory Chart */}
         <View style={styles.vpdMiniGraphWrap}>
           <View style={styles.vpdGraphHeader}>
-            <Text style={styles.vpdGraphTitle}>VPD Daily Trajectory (kPa)</Text>
-            <Text style={styles.vpdGraphPeak}>{mr ? 'तासागणिक अंदाज' : 'Hourly forecast'}</Text>
+            <Text style={styles.vpdGraphTitle}>
+              {mr ? 'तासागणिक बाष्प दाब तूट कल' : 'Hourly VPD Trajectory (kPa)'}
+            </Text>
+            <Text style={styles.vpdGraphPeak}>
+              {mr ? `तासागणिक अंदाज · सरासरी ${avgHourlyVpd}` : `Hourly forecast · Avg: ${avgHourlyVpd}`}
+            </Text>
           </View>
-          <Sparkline values={(data.hourly_forecast || []).map((h) => h.vpd_kpa)} />
+          <VpdChart
+            items={hourlyVpdItems}
+            language={language}
+            averageValue={Number(avgHourlyVpd)}
+            height={95}
+          />
         </View>
 
         <View style={styles.cropImpactBox}>
@@ -381,15 +372,14 @@ export const WeatherScreen: React.FC<WeatherScreenProps> = ({ farmer, language, 
           </View>
           <View style={styles.bioCardHeaderRight}>
             <Text style={styles.bioValTextAmber}>{data.current_et0_mm.toFixed(1)} mm/{mr ? 'दिवस' : 'day'}</Text>
-            <Text style={styles.bioDeltaTextRed}>{mr ? 'संदर्भ मागणी' : 'Reference demand'}</Text>
           </View>
         </View>
 
         <View style={styles.driversGrid}>
           <View style={styles.driverBox}>
-            <Text style={styles.driverLabel}>{mr ? 'थेट घटक' : 'Direct Drivers'}:</Text>
+            <Text style={styles.driverLabel}>{mr ? 'तापमान' : 'Temperature'}:</Text>
             <Text style={styles.driverVal}>
-              {Math.round(data.current_temp_c)}°C • {Math.round(data.current_humidity_pct)}% RH
+              {Math.round(data.current_temp_c)}°C
             </Text>
           </View>
           <View style={styles.driverBox}>
@@ -428,8 +418,8 @@ export const WeatherScreen: React.FC<WeatherScreenProps> = ({ farmer, language, 
             </View>
           </View>
           <View style={styles.bioCardHeaderRight}>
-            <Text style={styles.bioValTextGreen}>{amount(data.forecast_7d_gdd, ' GDD', 1)}</Text>
-            <Text style={styles.bioDeltaTextGreen}>{mr ? 'पुढील सात दिवस' : 'Next seven days'}</Text>
+            <Text style={styles.bioValTextGreen}>{amount(today?.gdd, ' GDD', 1)}</Text>
+            <Text style={styles.bioDeltaTextGreen}>{mr ? 'आजचा दैनिक अंदाज' : 'Today’s daily forecast'}</Text>
           </View>
         </View>
 
@@ -445,13 +435,34 @@ export const WeatherScreen: React.FC<WeatherScreenProps> = ({ farmer, language, 
             </Text>
           </View>
         </View>
-      </View>
 
-      <View style={styles.bioCard}>
-        <View style={styles.bioCardHeader}><View style={styles.bioCardHeaderLeft}><View style={styles.bioIconCircle}><Icon name="water-drop" size={20} color="#047857" /></View><View><Text style={styles.bioCardTitle}>{mr ? 'शेतासाठी सिंचन अंदाज' : 'Farm irrigation estimate'}</Text><Text style={styles.bioCardSubSlate}>{mr ? 'पाऊस व पीक गुणांक विचारात घेतले' : 'Includes rainfall and crop coefficient'}</Text></View></View></View>
-        <View style={styles.driversGrid}><View style={styles.driverBox}><Text style={styles.driverLabel}>{mr ? 'निव्वळ पाण्याची गरज' : 'Net water estimate'}</Text><Text style={styles.driverValGreen}>{amount(irrigation?.net_irrigation_mm_day, ' mm/day')}</Text></View><View style={styles.driverBox}><Text style={styles.driverLabel}>{mr ? 'संपूर्ण शेत' : 'Whole farm'}</Text><Text style={styles.driverValGreen}>{amount(irrigation?.water_required_liters, ' L', 0)}</Text></View></View>
-        <Text style={styles.cropImpactText}>{mr ? 'हा हवामानावर आधारित अंदाज आहे. मातीचा ओलावा व प्रत्यक्ष पंप प्रवाह तपासा. पंप व पीक गुणांकाच्या गृहीतकांसाठी सल्ला विभाग पाहा.' : (irrigation?.assumptions_note || 'Estimate unavailable. Check field soil moisture and actual pump flow.')}</Text>
-        <Text style={styles.sectionSubHeading}>{mr ? 'लागवडीपासून GDD' : 'GDD since planting'}: {amount(cumulativeGdd, '', 0)} · {mr ? 'ऐतिहासिक हवामान नोंदी आवश्यक' : 'Verified historical weather required'}</Text>
+        {/* 7-Day GDD Thermal Trajectory Chart */}
+        <View style={styles.gddMiniGraphWrap}>
+          <View style={styles.gddGraphHeader}>
+            <Text style={styles.gddGraphTitle}>
+              {mr ? 'दैनिक उष्णता संचयन कल' : '7-Day Heat Accumulation Trajectory'}
+            </Text>
+            <Text style={styles.gddGraphPeak}>
+              {mr ? `दैनिक अंदाज · सरासरी ${dailyGdd}` : `Daily forecast · Avg: ${dailyGdd}`}
+            </Text>
+          </View>
+          <GddChart
+            days={data.forecast_7_day}
+            language={language}
+            averageGdd={Number(dailyGdd) || 8.3}
+            height={95}
+          />
+        </View>
+
+        {/* Agronomic Crop Impact */}
+        <View style={styles.cropImpactBox}>
+          <Text style={styles.cropImpactText}>
+            <Text style={styles.cropImpactBold}>{mr ? 'पिकावरील परिणाम: ' : 'Crop Impact: '}</Text>
+            {mr
+              ? `दैनिक सरासरी ${dailyGdd} GDD ही उसाच्या संतुलित वाढीसाठी अनुकूल आहे. उष्णतेचे संचयन नियमित सुरू असून खोड व पानांची वाढ वेळेवर होत आहे.`
+              : `Daily mean of ${dailyGdd} GDD provides optimal thermal energy for steady vegetative growth and internode elongation without heat shock.`}
+          </Text>
+        </View>
       </View>
 
       {/* 4. 7-Day Weather & Agronomic Forecast */}
@@ -488,20 +499,19 @@ export const WeatherScreen: React.FC<WeatherScreenProps> = ({ farmer, language, 
 
       {/* Crop Watch & Field Context */}
       <CropWatchCard data={data} language={language} onScan={onScan} selectedDate={chosen?.date} />
-      <FieldConnections context={data.field_context} language={language} />
-
-      <Text
-        accessibilityRole="link"
-        onPress={() => Linking.openURL('https://open-meteo.com/')}
-        style={styles.openMeteoFooter}
-      >
-        Weather data © Open-Meteo
-      </Text>
     </FarmPage>
   );
 };
 
 const styles = StyleSheet.create({
+  loadingCard: { backgroundColor: '#eaf7ee', borderWidth: 1, borderColor: '#c5e6ce', borderRadius: 22, minHeight: 260, alignItems: 'center', justifyContent: 'center', padding: 26, gap: 18, marginTop: 15 },
+  loadingTitle: { fontSize: 18, fontWeight: '800', color: '#115a3e', textAlign: 'center' },
+  loadingNote: { fontSize: 12, color: '#587666', textAlign: 'center' },
+  weatherStatusRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  weatherStatusLabel: { flexDirection: 'row', alignItems: 'center', gap: 7, flexShrink: 1 },
+  weatherStatusText: { fontSize: 12, fontWeight: '700', color: '#3d6150', flexShrink: 1 },
+  weatherRefresh: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 12, paddingVertical: 9, paddingHorizontal: 12, backgroundColor: '#d9f0e1', minHeight: 40 },
+  weatherRefreshText: { fontSize: 12, color: '#0b7050', fontWeight: '800' },
   container: {
     flex: 1,
     backgroundColor: '#f7faf7',
@@ -603,9 +613,9 @@ const styles = StyleSheet.create({
     borderTopColor: '#f1f5f9',
   },
   telemetryCard: {
-    flexBasis: '31%',
+    flexBasis: '47%',
     flexGrow: 1,
-    minWidth: 95,
+    minWidth: 140,
     backgroundColor: '#f8fafc',
     borderRadius: 12,
     padding: 10,
@@ -807,7 +817,7 @@ const styles = StyleSheet.create({
     color: '#059669',
   },
   bioValTextAmber: {
-    fontSize: 17,
+    fontSize: 10,
     fontWeight: '800',
     color: '#d97706',
   },
@@ -878,11 +888,33 @@ const styles = StyleSheet.create({
   vpdGraphTitle: {
     fontSize: 10,
     color: '#64748b',
+    fontWeight: '600',
   },
   vpdGraphPeak: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#dc2626',
+    color: '#059669',
+  },
+  gddMiniGraphWrap: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    padding: 10,
+    gap: 6,
+  },
+  gddGraphHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  gddGraphTitle: {
+    fontSize: 10,
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  gddGraphPeak: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#059669',
   },
   cropImpactBox: {
     backgroundColor: 'rgba(240, 253, 244, 0.7)',

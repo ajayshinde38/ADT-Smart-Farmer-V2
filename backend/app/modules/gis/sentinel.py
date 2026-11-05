@@ -18,7 +18,7 @@ def get_s2_evalscript() -> str:
     //VERSION=3
     function setup() {
         return {
-            input: ["B02", "B04", "B05", "B08", "B11", "dataMask", "SCL"],
+            input: ["B02", "B03", "B04", "B05", "B08", "B11", "dataMask", "SCL"],
             output: [
                 { id: "NDVI", bands: 1, sampleType: "FLOAT32" }, 
                 { id: "EVI", bands: 1, sampleType: "FLOAT32" },
@@ -41,7 +41,7 @@ def get_s2_evalscript() -> str:
         let ndre = (sample.B08 - sample.B05) / (sample.B08 + sample.B05);
         let msavi = (2 * sample.B08 + 1 - Math.sqrt(Math.pow(2 * sample.B08 + 1, 2) - 8 * (sample.B08 - sample.B04))) / 2;
         let ndmi = (sample.B08 - sample.B11) / (sample.B08 + sample.B11);
-        let ndwi = (sample.B08 - sample.B11) / (sample.B08 + sample.B11);
+        let ndwi = (sample.B03 - sample.B08) / (sample.B03 + sample.B08);
 
         return { NDVI: [ndvi], EVI: [evi], NDRE: [ndre], MSAVI: [msavi], NDMI: [ndmi], NDWI: [ndwi] };
     }

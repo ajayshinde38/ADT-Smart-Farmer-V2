@@ -60,7 +60,9 @@ def test_crop_watch_does_not_invent_missing_sensor_or_rainfall_values():
 def test_no_disease_result_has_no_brown_rust_advice(monkeypatch):
     monkeypatch.setattr(unet_classifier, 'run_inference', lambda _: {
         'disease': 'No supported disease detected', 'confidence': 0.8,
-        'affected_percent': 0, 'severity': 'None', 'status': 'not_detected'})
+        'affected_percent': 0, 'severity': 'None', 'status': 'not_detected',
+        'model_result':{'model':'UNet / ResNet34','predictions':[]}})
+    monkeypatch.setattr('app.modules.pest_disease.efficientnet_classifier.run_inference',lambda _:{'status':'complete','predictions':[]})
     result = scans.diagnose_leaf_image(b'unit fixture')
     assert result.disease_details is None
     assert result.status == 'not_detected'
@@ -73,6 +75,9 @@ def test_model_failure_is_not_a_fake_diagnosis(monkeypatch):
 
 
 def test_scan_auth_invalid_upload_and_service_failure(monkeypatch):
+    monkeypatch.setattr('app.farmers.service.get_farm_by_id',lambda _: {'farm_id':FARM,'farmer_id':OWNER})
+    async def no_saved(*args): return None
+    monkeypatch.setattr('app.modules.pest_disease.history.saved_scan',no_saved)
     client = TestClient(app)
     assert client.post('/api/v1/pest-disease/detect', files={'file': ('x.png', b'bad', 'image/png')}).status_code == 401
     assert client.post('/api/v1/pest-disease/detect', headers=HEADERS,
@@ -83,7 +88,7 @@ def test_scan_auth_invalid_upload_and_service_failure(monkeypatch):
         raise RuntimeError('Unavailable')
     monkeypatch.setattr(scans, 'diagnose_leaf_image', unavailable)
     assert client.post('/api/v1/pest-disease/detect', headers=HEADERS,
-                       files={'file': ('x.png', data.getvalue(), 'image/png')}).status_code == 503
+                       files={'file': ('x.png', data.getvalue(), 'image/png')},data={'farm_id':FARM}).status_code == 503
 
 
 def test_todays_irrigation_does_not_credit_future_rain():

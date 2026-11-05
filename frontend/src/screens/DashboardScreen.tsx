@@ -57,7 +57,7 @@ export const DashboardScreen: React.FC<Props> = ({ farmer, language, onNavigate 
     }
   };
 
-  useEffect(() => {
+useEffect(() => {
     setData(null);
     setBusy(true);
     void load();

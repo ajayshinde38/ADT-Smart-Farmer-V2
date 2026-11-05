@@ -81,6 +81,7 @@ class WeatherOverviewResponse(BaseModel):
     source_type: str = "NWP Forecast Model (Best Match)"
     forecast_timezone: str = "Asia/Kolkata"
     last_updated_utc: str = ""
+    fetched_at_utc: str = ""
     is_cached: bool = False
     cache_expires_in_seconds: int = 900
 

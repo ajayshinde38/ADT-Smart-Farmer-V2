@@ -16,14 +16,21 @@ export interface InteractiveGISMapProps {
     scene_id?: string;
     acquisition_date?: string;
     resolution_meters?: number;
+    composite_start_date?: string | null;
+    composite_end_date?: string | null;
+    valid_pixel_coverage_pct?: number | null;
+    coverage_by_index?: Record<string, number> | null;
     bounds?: number[][];
     overlay_urls?: Record<string,string>;
   } | null;
-  mode?: 'A' | 'B';
+  mode?: 'A' | 'B' | 'V';
   mapHeight?: number;
-  onToggleMode?: (mode:'A'|'B')=>void;
+  onToggleMode?: (mode:'A'|'B'|'V')=>void;
   access?:'farmer'|'admin';
   authorizationToken?:string;
+  clipMode?: 'polygon' | 'bbox';
+  showBbox?: boolean;
+  onInspectPixel?: (info: { layer: string; value: number; description: string }) => void;
 }
 
 export const hasRasterForIndex = ({rasterInfo,activeIndex}: Pick<InteractiveGISMapProps,'rasterInfo'|'activeIndex'>) => {

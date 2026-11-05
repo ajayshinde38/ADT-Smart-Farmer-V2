@@ -65,10 +65,10 @@ def run_inference(image_bytes: bytes) -> Dict[str, Any]:
     try:
         import torch
         import numpy as np
-        from PIL import Image
+        from PIL import Image, ImageOps
         from torchvision import transforms
 
-        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        image = ImageOps.exif_transpose(Image.open(io.BytesIO(image_bytes))).convert("RGB")
         transform = transforms.Compose([
             transforms.Resize((256, 256)),
             transforms.ToTensor(),
@@ -79,6 +79,8 @@ def run_inference(image_bytes: bytes) -> Dict[str, Any]:
         with torch.no_grad():
             output = model(input_tensor)
             probs = torch.softmax(output, dim=1)
+            if not torch.isfinite(probs).all():
+                raise RuntimeError('Invalid segmentation output')
             confidence_map, raw_mask = torch.max(probs, dim=1)
             pred_mask = raw_mask.squeeze(0).numpy()
             pred_mask[confidence_map.squeeze(0).numpy() < 0.75] = 0
@@ -93,6 +95,15 @@ def run_inference(image_bytes: bytes) -> Dict[str, Any]:
         dominant_pixels = disease_counts[dominant_class]
 
         affected_pct = round((dominant_pixels / total_pixels) * 100, 1)
+        predictions=[]
+        for category in (1,2,3):
+            selected=pred_mask==category
+            area=round(float(selected.sum())/total_pixels*100,1)
+            score=float(probs[0,category].numpy()[selected].mean()) if selected.any() else 0.
+            predictions.append({'disease':UNET_CLASSES[category],'score':round(score,4),
+                'affected_percentage':area,'detected':area>=2.0 and score>=.75})
+        model_result={'model':'UNet / ResNet34','task':'segmentation','status':'complete',
+            'threshold':.75,'minimum_affected_percentage':2.0,'input_size':256,'predictions':predictions}
 
         if affected_pct < 2.0:
             return {
@@ -100,6 +111,7 @@ def run_inference(image_bytes: bytes) -> Dict[str, Any]:
                 'confidence': round(float(probs[0, 0].mean().item()), 2),
                 'affected_percent': 0.0, 'severity': 'None', 'status': 'not_detected',
                 'overlay_data_url': None,
+                'model_result':model_result,
             }
 
         disease_name = UNET_CLASSES.get(dominant_class, "Brown Rust")
@@ -120,6 +132,7 @@ def run_inference(image_bytes: bytes) -> Dict[str, Any]:
             "confidence": round(float(probs[0, dominant_class].numpy()[pred_mask == dominant_class].mean()), 2),
             "affected_percent": affected_pct,
             "severity": severity
+            ,'model_result':model_result
         }
     except Exception as e:
         logger.error('Scan inference failed: %s', type(e).__name__)

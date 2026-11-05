@@ -27,7 +27,7 @@ export const AdvisoryAnalytics=({farm}:{farm:AdminFarm})=>{
 };
 
 export const FarmerDetailPanel=({detail,tab,onTab}:{detail:FarmerDetail;tab:string;onTab:(value:string)=>void})=>{
- const [farmId,setFarmId]=useState(''),[index,setIndex]=useState('ndvi'),[mode,setMode]=useState<'A'|'B'>('B'),[forecast,setForecast]=useState<WeatherData|null>(null),[loadingWeather,setLoadingWeather]=useState(false),[error,setError]=useState(''),[reveal,setReveal]=useState(false);
+ const [farmId,setFarmId]=useState(''),[index,setIndex]=useState('ndvi'),[mode,setMode]=useState<'A'|'B'|'V'>('B'),[forecast,setForecast]=useState<WeatherData|null>(null),[loadingWeather,setLoadingWeather]=useState(false),[error,setError]=useState(''),[reveal,setReveal]=useState(false);
  const farm=detail.farms.find(f=>f.farm_id===farmId)||detail.farms[0];
  if(!farm)return <Card><Text style={ui.body}>This farmer has no associated farm record.</Text></Card>;
  const weather=forecast?.farm_id===farm.farm_id?forecast:farm.weather;

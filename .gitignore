@@ -71,3 +71,7 @@ artifacts/verification-evidence/*.xml
 .idea/
 *.bak
 artifacts/*backup*/
+*-BACKUP/
+*.zip
+test_raster.png
+backend/app/.cache/

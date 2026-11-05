@@ -57,4 +57,5 @@ class AdvisoryResponse(BaseModel):
     soil_status: SoilNutrientStatus
     rdf: Optional[RDFRecommendation] = None
     weekly_schedules: List[WeeklyStageScheduleItem] = []
+    schedule: Optional[Dict[str, Any]] = None
     planning: Dict[str,Any] = {}
