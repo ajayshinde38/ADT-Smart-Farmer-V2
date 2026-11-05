@@ -32,7 +32,7 @@ try {
     Set-Location android
     & .\gradlew.bat :app:assembleRelease --console=plain --max-workers=2 '-PreactNativeArchitectures=arm64-v8a,x86_64' "-Dorg.gradle.jvmargs=$buildJvmArguments"
     if ($LASTEXITCODE -ne 0) { throw 'Android APK build failed.' }
-    $finalApkPath = "$projectRoot\artifacts\releases\ADT-Smart-Farmer-V2-2.1.0.apk"
+    $finalApkPath = "$projectRoot\artifacts\releases\ADT-Smart-Farmer-V2-2.2.0.apk"
     Copy-Item -LiteralPath 'app\build\outputs\apk\release\app-release.apk' -Destination $finalApkPath -Force
     Write-Host "Final APK built successfully: $finalApkPath"
 } finally {
