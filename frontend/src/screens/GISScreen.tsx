@@ -12,9 +12,10 @@ import {
 } from 'react-native';
 import { AppText as Text, Icon, Card, ui } from '../components/ui';
 import { ApiClient } from '../services/apiClient';
-import { FarmerProfile, GISData, VraSummary } from '../types';
+import { FarmerProfile, GISData, VraSummary, VRAPrescriptionData } from '../types';
 import { translations } from '../i18n/translations';
 import { InteractiveGISMap } from '../components/InteractiveGISMap';
+import { VRAPrescriptionCards } from '../components/VRAPrescriptionCards';
 import { hasRasterForIndex } from '../components/gisMapTypes';
 import { shortDate } from '../utils/farmPresentation';
 import { colors } from '../theme/colors';
@@ -179,6 +180,8 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
   const [overlayVisible, setOverlayVisible] = useState(true);
   const [mapMode, setMapMode] = useState<'A' | 'B' | 'V'>('B');
   const [vraSummary, setVraSummary] = useState<VraSummary | null>(null);
+  const [vraPrescription, setVraPrescription] = useState<VRAPrescriptionData | null>(null);
+  const [selectedVraZone, setSelectedVraZone] = useState<string>('all');
   const [vraLoading, setVraLoading] = useState(false);
   const [batchProgress, setBatchProgress] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
@@ -340,17 +343,47 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
 
   useEffect(() => {
     let alive = true;
-    if (mapMode !== 'V' || !farmer.farm_id || !data?.raster?.overlay_urls?.vra) {
+    if (!farmer.farm_id) {
       setVraSummary(null);
+      setVraPrescription(null);
       return;
     }
+
+    const isVraActive = mapMode === 'V' || selectedIndex === 'vra';
+    if (!isVraActive) {
+      return;
+    }
+
     setVraLoading(true);
-    ApiClient.getVraSummary(farmer.farm_id)
-      .then(value => { if (alive) setVraSummary(value); })
-      .catch(() => { if (alive) setVraSummary(null); })
-      .finally(() => { if (alive) setVraLoading(false); });
-    return () => { alive = false; };
-  }, [mapMode, farmer.farm_id, data?.raster?.overlay_urls?.vra]);
+
+    ApiClient.getVraPrescription(farmer.farm_id)
+      .then((presc) => {
+        if (alive && presc) {
+          setVraPrescription(presc);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (alive) setVraLoading(false);
+      });
+
+    if (data?.raster?.overlay_urls?.vra) {
+      ApiClient.getVraSummary(farmer.farm_id)
+        .then((value) => {
+          if (alive && value) {
+            setVraSummary(value);
+            if (value.prescription) {
+              setVraPrescription(value.prescription);
+            }
+          }
+        })
+        .catch(() => {});
+    }
+
+    return () => {
+      alive = false;
+    };
+  }, [mapMode, selectedIndex, farmer.farm_id, data?.raster?.overlay_urls?.vra]);
 
   const getIndexVal = (key: IndexKey): number | null => {
     if (!data?.indices) return null;
@@ -414,6 +447,7 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
         rasterInfo={data?.raster}
         mode={vraMode ? 'V' : spatial ? 'B' : 'A'}
         onToggleMode={setMapMode}
+        selectedVraZone={selectedVraZone}
         mapHeight={mapHeight}
       />
 
@@ -509,6 +543,9 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
                 disabled={generatingIndex !== null}
                 onPress={() => {
                   setSelectedIndex(key);
+                  if (key === 'vra') {
+                    setMapMode('V');
+                  }
                   setOverlayVisible(true);
                   setRasterNotice('');
                 }}
@@ -526,21 +563,6 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
               </TouchableOpacity>
             );
           })}
-        </View>
-
-        {/* Real Satellite Pixels Quality Banner matching Screenshot */}
-        <View style={styles.qualityBanner}>
-          <Icon name="verified" size={18} color="#059669" />
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={styles.qualityBannerTitle}>
-              {mr ? 'प्रत्यक्ष उपग्रह पिक्सेल · कोणताही कृत्रिम रंग नाही' : 'Real satellite pixels · no artificial fill'}
-            </Text>
-            <Text style={styles.qualitySub}>
-              {mr
-                ? 'स्मूथ डिस्प्ले कडा. मूळ उपग्रह रिझोल्यूशन आणि अचूक मापन सुरक्षित ठेवले आहे. कम्पोझिट कालावधी: ' + (data?.indices?.capture_date || '२०२६') + ' · वैध क्षेत्र कव्हरेज १००.०%'
-                : 'Smooth display edges. Original satellite resolution, measurements and no-data gaps are preserved. Composite window: ' + (data?.indices?.capture_date || '2026') + ' · valid field coverage 100.0%'}
-            </Text>
-          </View>
         </View>
 
         {/* Active Index Spotlight Card (Signature Dark Green Gradient) matching Stitch */}
@@ -608,7 +630,11 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
                 disabled={generatingIndex !== null}
                 onPress={() => {
                   setSelectedIndex(key);
-                  setMapMode('B');
+                  if (key === 'vra') {
+                    setMapMode('V');
+                  } else {
+                    setMapMode('B');
+                  }
                   setOverlayVisible(true);
                   setRasterNotice('');
                 }}
@@ -645,6 +671,24 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
             );
           })}
         </View>
+
+        {/* ── 3-ZONE VARIABLE RATE APPLICATION (VRA) PRECISION PRESCRIPTION CARDS ── */}
+        {(mapMode === 'V' || activeIndex === 'vra' || vraPrescription) && (
+          <VRAPrescriptionCards
+            prescription={vraPrescription}
+            language={language}
+            selectedZone={selectedVraZone}
+            onSelectZone={(zoneId) => {
+              setSelectedVraZone(zoneId);
+              if (zoneId !== 'all') {
+                setSelectedIndex('vra');
+                setMapMode('V');
+                setOverlayVisible(true);
+              }
+            }}
+            loading={vraLoading && !vraPrescription}
+          />
+        )}
 
         <View style={styles.refreshBlock}>
           <Text style={styles.refreshNote}>{mr ? 'वरील सरासरी निर्देशांकांची तारीख' : 'Index averages observed'}: {data?.indices?.capture_date || '—'}. {rasterHistorical ? (mr ? 'नकाशातील जुने दृश्य सध्याची पीक स्थिती दर्शवत नाही.' : 'The historical map image does not show current crop conditions.') : ''}</Text>

@@ -1,5 +1,6 @@
 import { FarmPage } from '../components/FarmPage';
 import { DiseaseGuidance } from '../components/DiseaseGuidance';
+import { AgriLoadingAnimation } from '../components/AgriLoadingAnimation';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
@@ -391,6 +392,7 @@ export const PestDetectionScreen: React.FC<Props> = ({ farmer, language, onWeath
 
       {!!result?.overlay_data_url && <TouchableOpacity accessibilityRole="button"
         style={styles.pesticidesBtn} onPress={() => setShowOverlay(value => !value)}>
+        <Icon name={showOverlay ? "image" : "layers"} size={22} color="#ffffff" />
         <Text style={styles.pesticidesBtnText}>{showOverlay
           ? (mr ? 'मूळ फोटो पहा' : 'Show original photo')
           : (mr ? 'मॉडेलने दर्शवलेले क्षेत्र पहा' : 'Show model overlay')}</Text>
@@ -398,18 +400,11 @@ export const PestDetectionScreen: React.FC<Props> = ({ farmer, language, onWeath
       {pendingPhoto && !loading && (
         <TouchableOpacity accessibilityRole="button" style={styles.pesticidesBtn}
           onPress={() => { void scan(pendingPhoto); }}>
-          <Icon name="search" size={20} color="#ffffff" />
+          <Icon name="search" size={24} color="#ffffff" />
           <Text style={styles.pesticidesBtnText}>{error ? (mr ? 'पुन्हा प्रयत्न करा' : 'Retry this photo') : (mr ? 'या फोटोचे विश्लेषण करा' : 'Analyze this photo')}</Text>
         </TouchableOpacity>
       )}
-      {loading && <View style={styles.scanProgressCard} accessibilityLiveRegion="polite">
-        <View style={styles.scanProgressTop}>
-          <ActivityIndicator color="#08754c" size="small" />
-          <Text style={styles.scanProgressTitle}>{mr ? 'पानाचे AI विश्लेषण सुरू आहे…' : 'AI is analyzing your leaf…'}</Text>
-        </View>
-        <Text style={styles.scanProgressDetail}>{mr ? 'फोटो सुरक्षितपणे पाठवून UNet आणि EfficientNet ही दोन्ही मॉडेल चालवत आहे. दोन्ही निकाल आणि फोटो खासगी इतिहासात जतन झाल्यावरच तपासणी पूर्ण होईल.' : 'Running both UNet and EfficientNet. Completion is reported only after the image, model evidence and result are saved privately.'}</Text>
-        <Text style={styles.scanProgressHint}>{mr ? 'हे टक्केवारीचे प्रगतीमापक नाही; प्रक्रिया वेळ बदलू शकते.' : 'Processing time varies. No artificial progress percentage is shown.'}</Text>
-      </View>}
+      {loading && <AgriLoadingAnimation language={language} />}
       {/* Error Notice */}
       {!!error && (
         <View style={styles.errorBanner}>
@@ -418,13 +413,6 @@ export const PestDetectionScreen: React.FC<Props> = ({ farmer, language, onWeath
         </View>
       )}
 
-      {!!result && <View style={styles.scanSafetyCard}>
-        <Icon name="fact-check" size={18} color="#155e48" />
-        <Text style={styles.scanSafetyText}>{mr ? 'हा फोटो आधारित मॉडेलचा अंदाज आहे, निश्चित निदान नाही. फवारणी करण्यापूर्वी स्थानिक कृषितज्ञांचा सल्ला घ्या.' : 'This is a photo-based model estimate, not a confirmed diagnosis. Consult a local agronomist before treatment.'}</Text>
-      </View>}
-
-      {result && <View style={styles.quickAdviceBox}><Text style={styles.quickAdviceText}>{mr ? 'अंदाजित बाधित क्षेत्र' : 'Estimated affected image area'}: {result.affected_percentage.toFixed(1)}% · {result.history_note || (result.record_saved ? (mr ? 'जतन केले' : 'Saved') : (mr ? 'जतन केले नाही' : 'Not saved'))}</Text></View>}
-      <Text style={styles.subtitle}>{mr ? 'प्रत्येक पूर्ण झालेली तपासणी तुमच्या शेताच्या खासगी इतिहासात जतन केली जाते.' : 'Every completed scan is saved to your farm’s private history.'}</Text>
       {result && (
         <DiseaseGuidance
           key={result.record_id || 'current'}
@@ -719,9 +707,9 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   controlIconWrap: {
-    width: 46,
-    height: 46,
-    borderRadius: 16,
+    width: 52,
+    height: 52,
+    borderRadius: 18,
     backgroundColor: 'rgba(255, 255, 255, 0.22)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.35)',
@@ -729,7 +717,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   controlLabel: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '700',
     color: '#ffffff',
   },
@@ -738,9 +726,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   shutterRing: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     borderWidth: 4,
     borderColor: '#34d399',
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
@@ -753,9 +741,9 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   shutterInnerCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
@@ -856,39 +844,42 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   pesticidesBtn: {
-    flex: 1,
-    height: 42,
-    borderRadius: 12,
+    minHeight: 52,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 14,
     backgroundColor: colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 10,
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 3,
   },
   pesticidesBtnText: {
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: '700',
     color: '#ffffff',
+    letterSpacing: 0.3,
   },
   agronomistBtn: {
-    flex: 1,
-    height: 42,
-    borderRadius: 12,
+    minHeight: 52,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 14,
     backgroundColor: '#f1f5f9',
     borderWidth: 1,
     borderColor: '#e2e8f0',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 10,
   },
   agronomistBtnText: {
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: '700',
     color: '#1e293b',
   },

@@ -45,31 +45,6 @@ export const DiseaseGuidance: React.FC<Props> = ({
 
   const detected = status === 'disease_detected' && !!details;
 
-  // Compute best disease predictions for AI DETECTION MODELS bar
-  const diseaseName = detectedDisease || details?.pathogen || 'Mosaic';
-  const scorePercent = confidenceScore ? Math.round(confidenceScore * 100) : 88;
-
-  // Extract all predictions from models
-  const modelPredictions: Array<{ disease: string; score: number; detected: boolean }> = [];
-  if (models && models.length > 0) {
-    for (const m of models) {
-      for (const p of m.predictions) {
-        if (!modelPredictions.some((x) => x.disease === p.disease)) {
-          modelPredictions.push({
-            disease: p.disease,
-            score: Math.round(p.score * 100),
-            detected: p.detected,
-          });
-        }
-      }
-    }
-  }
-
-  // Find primary detection for top bar display
-  const primaryName = mr
-    ? { 'Brown Rust': 'तांबेरा', Mosaic: 'मोझॅक', 'Red Rot': 'लाल कूज' }[diseaseName] || diseaseName
-    : diseaseName;
-
   return (
     <View style={styles.container}>
       {/* 1. TREATMENT: Recommended Immediate Intervention Banner */}
@@ -102,38 +77,35 @@ export const DiseaseGuidance: React.FC<Props> = ({
       {/* 2. SYMPTOMS, CAUSES, PREVENTION Grid */}
       {detected && (
         <View style={styles.detailsGrid}>
-          {/* Row 1: Symptoms & Causes */}
-          <View style={styles.twoColRow}>
-            {/* Symptoms Card */}
-            <View style={[styles.infoCard, { flex: 1 }]}>
-              <View style={styles.infoCardHeader}>
-                <View style={[styles.iconContainer, { backgroundColor: '#fdeeed' }]}>
-                  <Icon name="bug-report" size={16} color="#e05344" />
-                </View>
-                <Text style={styles.infoCardTag}>{word('SYMPTOMS', 'लक्षणे')}</Text>
+          {/* 1: Symptoms Card (Full width on top) */}
+          <View style={styles.infoCard}>
+            <View style={styles.infoCardHeader}>
+              <View style={[styles.iconContainer, { backgroundColor: '#fdeeed' }]}>
+                <Icon name="bug-report" size={16} color="#e05344" />
               </View>
-              <Text style={styles.infoCardBody}>
-                {(mr ? details.symptoms_mr : details.symptoms) ||
-                  word('Yellow-green mottling on leaves, stunted growth, reduced yield, irregular chlorotic patches', 'पानांवर पिवळसर-हिरवे चट्टे, वाढ खुंटणे व उत्पादनात घट')}
-              </Text>
+              <Text style={styles.infoCardTag}>{word('SYMPTOMS', 'लक्षणे')}</Text>
             </View>
-
-            {/* Causes Card */}
-            <View style={[styles.infoCard, { flex: 1 }]}>
-              <View style={styles.infoCardHeader}>
-                <View style={[styles.iconContainer, { backgroundColor: '#fef3c7' }]}>
-                  <Icon name="warning" size={16} color="#d97706" />
-                </View>
-                <Text style={styles.infoCardTag}>{word('CAUSES', 'कारणे')}</Text>
-              </View>
-              <Text style={styles.infoCardBody}>
-                {(mr ? details.causes_mr : details.causes) ||
-                  word('Viral infection (Sugarcane Mosaic Virus) transmitted by aphid vectors', 'मावा किडींद्वारे पसरणारा विषाणूजन्य संसर्ग')}
-              </Text>
-            </View>
+            <Text style={styles.infoCardBody}>
+              {(mr ? details.symptoms_mr : details.symptoms) ||
+                word('Yellow-green mottling on leaves, stunted growth, reduced yield, irregular chlorotic patches', 'पानांवर पिवळसर-हिरवे चट्टे, वाढ खुंटणे व उत्पादनात घट')}
+            </Text>
           </View>
 
-          {/* Row 2: Prevention Card (Full width) */}
+          {/* 2: Causes Card (Full width below Symptoms) */}
+          <View style={styles.infoCard}>
+            <View style={styles.infoCardHeader}>
+              <View style={[styles.iconContainer, { backgroundColor: '#fef3c7' }]}>
+                <Icon name="warning" size={16} color="#d97706" />
+              </View>
+              <Text style={styles.infoCardTag}>{word('CAUSES', 'कारणे')}</Text>
+            </View>
+            <Text style={styles.infoCardBody}>
+              {(mr ? details.causes_mr : details.causes) ||
+                word('Viral infection (Sugarcane Mosaic Virus) transmitted by aphid vectors', 'मावा किडींद्वारे पसरणारा विषाणूजन्य संसर्ग')}
+            </Text>
+          </View>
+
+          {/* 3: Prevention Card (Full width below Causes) */}
           <View style={styles.infoCard}>
             <View style={styles.infoCardHeader}>
               <View style={[styles.iconContainer, { backgroundColor: '#eef2ef' }]}>
@@ -149,94 +121,17 @@ export const DiseaseGuidance: React.FC<Props> = ({
         </View>
       )}
 
-      {/* 3. AI DETECTION MODELS Card */}
-      <View style={styles.card}>
-        <Text style={styles.sectionHeading}>{word('AI DETECTION MODELS', 'AI रोग तपासणी मॉडेल')}</Text>
-
-        {/* Primary Detected Disease Progress Bar */}
-        <View style={styles.aiModelRow}>
-          <View style={styles.aiModelLeft}>
-            <View style={styles.greenDot} />
-            <Text style={styles.aiDiseaseName}>{primaryName}</Text>
-          </View>
-          <View style={styles.aiModelRight}>
-            <Text style={styles.aiScoreText}>{scorePercent}%</Text>
-            <View style={styles.aiBarTrack}>
-              <View style={[styles.aiBarFill, { width: `${Math.max(5, Math.min(100, scorePercent))}%` }]} />
-            </View>
-          </View>
-        </View>
-
-        {/* Additional candidate models if available and not redundant */}
-        {modelPredictions
-          .filter((p) => p.disease !== diseaseName && p.score > 20)
-          .map((p) => (
-            <View key={p.disease} style={[styles.aiModelRow, { marginTop: 6 }]}>
-              <View style={styles.aiModelLeft}>
-                <View style={[styles.greenDot, { backgroundColor: p.detected ? '#16a34a' : '#94a3b8' }]} />
-                <Text style={styles.aiDiseaseName}>
-                  {mr ? { 'Brown Rust': 'तांबेरा', Mosaic: 'मोझॅक', 'Red Rot': 'लाल कूज' }[p.disease] || p.disease : p.disease}
-                </Text>
-              </View>
-              <View style={styles.aiModelRight}>
-                <Text style={styles.aiScoreText}>{p.score}%</Text>
-                <View style={styles.aiBarTrack}>
-                  <View
-                    style={[
-                      styles.aiBarFill,
-                      {
-                        width: `${Math.max(5, Math.min(100, p.score))}%`,
-                        backgroundColor: p.detected ? '#16a34a' : '#94a3b8',
-                      },
-                    ]}
-                  />
-                </View>
-              </View>
-            </View>
-          ))}
-
-        {!detected && (
+      {!detected && (
+        <View style={styles.card}>
           <Text style={styles.unconfirmedText}>
             {status === 'uncertain'
-              ? word('Models require field verification. Check symptoms with an agronomist.', 'मॉडेलमध्ये तफावत आहे · कृषितज्ज्ञांकडून प्रत्यक्ष खात्री करा.')
+              ? word('Field verification recommended. Check symptoms with an agronomist.', 'प्रत्यक्ष शेतात जाऊन कृषितज्ज्ञांकडून खात्री करा.')
               : word('No supported disease detected above diagnostic thresholds.', 'कोणताही समर्थित रोग आढळला नाही.')}
           </Text>
-        )}
-      </View>
-
-      {/* 4. CHEMICAL REFERENCES & DOSAGE Table */}
-      {detected && !!details.chemical_references?.length && (
-        <View style={styles.card}>
-          <View style={styles.chemHeader}>
-            <Icon name="science" size={18} color="#b91c1c" />
-            <Text style={styles.sectionHeading}>{word('CHEMICAL REFERENCES & DOSAGE', 'रासायनिक संदर्भ आणि मात्रा')}</Text>
-          </View>
-
-          {/* Table Header */}
-          <View style={styles.tableHeaderRow}>
-            <Text style={[styles.tableHeaderCell, { flex: 2.2 }]}>{word('PRODUCT', 'उत्पादन')}</Text>
-            <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>{word('DOSAGE', 'मात्रा')}</Text>
-            <Text style={[styles.tableHeaderCell, { flex: 1.8 }]}>{word('GROUP', 'गट')}</Text>
-          </View>
-
-          {/* Table Rows */}
-          {details.chemical_references.map((row, i) => (
-            <View
-              key={i}
-              style={[
-                styles.tableDataRow,
-                i === details.chemical_references!.length - 1 && { borderBottomWidth: 0 },
-              ]}
-            >
-              <Text style={[styles.tableCellProduct, { flex: 2.2 }]}>{row.product}</Text>
-              <Text style={[styles.tableCellDosage, { flex: 1.5 }]}>{row.dosage}</Text>
-              <Text style={[styles.tableCellGroup, { flex: 1.8 }]}>{row.group}</Text>
-            </View>
-          ))}
         </View>
       )}
 
-      {/* 5. MANAGEMENT PRACTICES Accordions */}
+      {/* 4. MANAGEMENT PRACTICES Accordions */}
       {detected && !!details.management_practices?.length && (
         <View style={{ gap: 12 }}>
           <Text style={styles.managementHeading}>
@@ -292,11 +187,36 @@ export const DiseaseGuidance: React.FC<Props> = ({
         </View>
       )}
 
-      {/* Reference note footer */}
-      {detected && (details.reference_note || details.reference_note_mr) && (
-        <Text style={styles.footerNote}>
-          {mr ? details.reference_note_mr : details.reference_note}
-        </Text>
+      {/* 5. CHEMICAL REFERENCES & DOSAGE Table */}
+      {detected && !!details.chemical_references?.length && (
+        <View style={styles.card}>
+          <View style={styles.chemHeader}>
+            <Icon name="science" size={18} color="#b91c1c" />
+            <Text style={styles.sectionHeading}>{word('CHEMICAL REFERENCES & DOSAGE', 'रासायनिक संदर्भ आणि मात्रा')}</Text>
+          </View>
+
+          {/* Table Header */}
+          <View style={styles.tableHeaderRow}>
+            <Text style={[styles.tableHeaderCell, { flex: 2.2 }]}>{word('PRODUCT', 'उत्पादन')}</Text>
+            <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>{word('DOSAGE', 'मात्रा')}</Text>
+            <Text style={[styles.tableHeaderCell, { flex: 1.8 }]}>{word('GROUP', 'गट')}</Text>
+          </View>
+
+          {/* Table Rows */}
+          {details.chemical_references.map((row, i) => (
+            <View
+              key={i}
+              style={[
+                styles.tableDataRow,
+                i === details.chemical_references!.length - 1 && { borderBottomWidth: 0 },
+              ]}
+            >
+              <Text style={[styles.tableCellProduct, { flex: 2.2 }]}>{row.product}</Text>
+              <Text style={[styles.tableCellDosage, { flex: 1.5 }]}>{row.dosage}</Text>
+              <Text style={[styles.tableCellGroup, { flex: 1.8 }]}>{row.group}</Text>
+            </View>
+          ))}
+        </View>
       )}
     </View>
   );

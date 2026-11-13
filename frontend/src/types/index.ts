@@ -107,6 +107,9 @@ export interface WeatherData {
   cumulative_gdd: number;
   forecast_7d_gdd?: number;
   cumulative_gdd_since_planting?: number | null;
+  planting_age_days?: number | null;
+  farm_area_acres?: number | null;
+  farm_area_m2?: number | null;
   plantation_date?: string | null;
   et0_source?: string;
   irrigation: {
@@ -137,10 +140,28 @@ export interface WeatherData {
     wind_kmh?: number | null;
     weather_condition: string;
     weather_icon: string;
+    water_demand_liters?: number | null;
+    etc_mm?: number | null;
+  }>;
+  past_7_day?: Array<{
+    date: string;
+    temp_max_c: number;
+    temp_min_c: number;
+    humidity_pct: number | null;
+    rainfall_mm: number;
+    precipitation_probability?: number;
+    et0_mm: number;
+    vpd_kpa?: number | null;
+    gdd?: number;
+    wind_kmh?: number | null;
+    weather_condition: string;
+    weather_icon: string;
+    water_demand_liters?: number | null;
+    etc_mm?: number | null;
   }>;
   crop_watch?: Array<{
-    rule_id: string; name: string; category: string; score: number | null; criteria_tested: number;
-    stage_eligible: boolean | null; date: string; symptoms: string; evidence_grade: string;
+    rule_id: string; name: string; name_mr?: string; category: string; score: number | null; criteria_tested: number;
+    stage_eligible: boolean | null; date: string; symptoms: string; symptoms_mr?: string; evidence_grade: string;
   }>;
   weather_provider?: string;
   source_type?: string;
@@ -254,6 +275,64 @@ export interface DiseaseDetectionResult {
   } | null;
 }
 
+export interface VRAProductPrescription {
+  name: string;
+  base_rate_per_acre: number;
+  rate_per_acre: number;
+  total_quantity: number;
+  unit: string;
+  note?: string;
+  note_mr?: string;
+}
+
+export interface VRAZone {
+  id: 'zone_1' | 'zone_2' | 'zone_3' | string;
+  name: string;
+  name_mr?: string;
+  short_name: string;
+  short_name_mr?: string;
+  color: string;
+  badge_color?: string;
+  percentage: number;
+  acres: number;
+  multiplier: number;
+  multiplier_label: string;
+  multiplier_label_mr?: string;
+  canopy_status: string;
+  canopy_status_mr?: string;
+  irrigation_run_hours: number;
+  ai_diagnosis: string;
+  ai_diagnosis_mr?: string;
+  agronomic_action: string;
+  agronomic_action_mr?: string;
+  isolate_btn_label: string;
+  isolate_btn_label_mr?: string;
+  fertilizers: VRAProductPrescription[];
+}
+
+export interface VRAPrescriptionData {
+  status: string;
+  farmer_name?: string;
+  total_acres: number;
+  period: string;
+  stage: string;
+  application_date?: string;
+  is_upcoming_dose_modulation: boolean;
+  upcoming_fertilizers: string[];
+  zones: VRAZone[];
+  impact_summary?: {
+    uniform_total_kg: number;
+    vra_total_kg: number;
+    fertilizer_saved_kg: number;
+    reallocated_to_recovery_kg: number;
+    estimated_savings_inr: number;
+    nitrogen_use_efficiency_gain_pct: number;
+    nitrate_leaching_reduction_pct: number;
+    yield_uniformity_improvement_pct: number;
+  };
+  valve_operation_instructions?: string[];
+}
+
 export interface VraSummary {
   source_index: string;
   method: string;
@@ -261,4 +340,5 @@ export interface VraSummary {
   valid_pixel_count: number;
   counts: { check: number; monitor: number; strong: number; no_data: number };
   share_of_valid_pixels_pct: { check: number; monitor: number; strong: number };
+  prescription?: VRAPrescriptionData;
 }

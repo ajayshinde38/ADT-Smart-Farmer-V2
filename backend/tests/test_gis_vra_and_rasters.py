@@ -102,3 +102,51 @@ def test_leaflet_native_assets_are_served_locally():
     assert response.status_code == 200
     assert b'Leaflet' in response.content[:1000]
     assert response.headers['x-content-type-options'] == 'nosniff'
+
+
+def test_vra_precision_prescription_structure():
+    from app.modules.gis.vra import compute_vra_precision_zones
+    farm = {
+        'farm_id': str(FARM_ID),
+        'farmer_id': str(FARMER_ID),
+        'name': 'Navnath Trymbak Dakhore',
+        'area_acre': 2.41,
+        'plantation_date': '2026-07-10',
+        'crop_season': 'Adsali',
+        'soil': {'ph': 7.6, 'oc': 0.65, 'n': 120, 'p': 18, 'k': 260},
+    }
+    result = compute_vra_precision_zones(farm)
+    assert result['status'] == 'success'
+    assert result['total_acres'] == 2.41
+    assert len(result['zones']) == 3
+    z1, z2, z3 = result['zones']
+
+    # Zone 1: Low Vigor / Deficit (+25%)
+    assert z1['id'] == 'zone_1'
+    assert z1['multiplier'] == 1.25
+    assert '+25%' in z1['multiplier_label']
+    assert z1['canopy_status'] == 'Lagging / Canopy Deficit'
+    assert z1['irrigation_run_hours'] == 2.5
+    assert len(z1['fertilizers']) >= 1
+
+    # Zone 2: Optimal Growth / Target (100%)
+    assert z2['id'] == 'zone_2'
+    assert z2['multiplier'] == 1.00
+    assert '100%' in z2['multiplier_label']
+    assert z2['canopy_status'] == 'Healthy / Target Performance'
+    assert z2['irrigation_run_hours'] == 2.0
+
+    # Zone 3: Dense Canopy / High Vigor (-25%)
+    assert z3['id'] == 'zone_3'
+    assert z3['multiplier'] == 0.75
+    assert '-25%' in z3['multiplier_label']
+    assert z3['canopy_status'] == 'Dense Foliage / Vigor Saturated'
+    assert z3['irrigation_run_hours'] == 1.5
+
+    # Check percentages strictly sum to 100%
+    assert z1['percentage'] + z2['percentage'] + z3['percentage'] == 100
+
+    # Check impact summary
+    assert 'fertilizer_saved_kg' in result['impact_summary']
+    assert result['impact_summary']['nitrogen_use_efficiency_gain_pct'] == 19
+

@@ -14,6 +14,7 @@ import { AppText as Text, Icon, Card, ui } from '../components/ui';
 import { Sparkline } from '../components/Sparkline';
 import { GddChart } from '../components/GddChart';
 import { VpdChart } from '../components/VpdChart';
+import { WaterDemandChart } from '../components/WaterDemandChart';
 import { stageLabel } from '../utils/farmPresentation';
 import { CropWatchCard } from '../components/CropWatchCard';
 import { ForecastChart } from '../components/ForecastChart';
@@ -139,6 +140,32 @@ export const WeatherScreen: React.FC<WeatherScreenProps> = ({ farmer, language, 
   const dewPointC = gamma == null ? null : 243.04 * gamma / (17.625 - gamma);
   const waterDemandLHa = Math.round(data.current_et0_mm * 10000);
   const dailyGdd = data.forecast_7d_gdd != null ? (data.forecast_7d_gdd / Math.max(1, data.forecast_7_day.length)).toFixed(1) : '—';
+
+  const farmAreaAcres = data.farm_area_acres ?? farmer.farm_area_acres ?? 1.0;
+  const farmAreaM2 = data.farm_area_m2 ?? Math.round(farmAreaAcres * 4046.8564);
+
+  // Exact water requirement for today for the plot area in Liters/day (FAO-56 standard)
+  const todayWaterLiters = data.irrigation?.water_required_liters ?? Math.round((today?.water_demand_liters ?? (data.current_et0_mm * (data.irrigation?.kc ?? 0.90) * farmAreaM2)));
+  const todayEtcMm = data.irrigation?.etc_mm_day ?? (today?.etc_mm ?? Number((data.current_et0_mm * (data.irrigation?.kc ?? 0.90)).toFixed(1)));
+  const effectiveRainToday = today?.rainfall_mm && today.rainfall_mm > 1.0 ? today.rainfall_mm * 0.80 : 0.0;
+  const todayNetMm = data.irrigation?.net_irrigation_mm_day ?? Math.max(0, Number((todayEtcMm - effectiveRainToday).toFixed(1)));
+
+  // Format pump duration safely without unit truncation
+  const formatPumpDuration = (label?: string) => {
+    if (!label) return '—';
+    if (mr) {
+      return label
+        .replace(/\bhr\b/g, 'तास')
+        .replace(/\bmin\b/g, 'मि.')
+        .replace('(Rain Sufficed)', '(पाऊस पुरेसा)');
+    }
+    return label;
+  };
+
+  // Accumulated GDD since planting
+  const accumulatedGdd = data.cumulative_gdd_since_planting;
+  const plantingAgeDays = data.planting_age_days;
+  const plantationDateStr = data.plantation_date;
 
   const dateLabel = (dateStr: string) =>
     new Date(`${dateStr}T12:00:00+05:30`).toLocaleDateString(locale, {
@@ -275,15 +302,15 @@ export const WeatherScreen: React.FC<WeatherScreenProps> = ({ farmer, language, 
         </ScrollView>
       ) : null}
 
-      {/* 3. Advanced Agricultural Microclimate Telemetry matching Stitch */}
+      {/* 3. Crop Growth & Water Intelligence */}
       <View style={styles.sectionTitleBlock}>
         <Text style={styles.sectionHeading}>
-          {mr ? 'शेताचे सूक्ष्म हवामान मापदंड' : 'Agricultural Microclimate Telemetry'}
+          {mr ? 'उसाच्या वाढीचे व पाण्याचे मुख्य निर्देशांक' : 'Crop Growth & Water Intelligence'}
         </Text>
         <Text style={styles.sectionSubHeading}>
           {mr
-            ? 'उसाच्या बाष्पोत्सर्जन व वाढीसाठी वैज्ञानिक निर्देशांक'
-            : 'Physiological indicators for sugarcane transpiration & thermal units'}
+            ? 'पानांचे श्वसन (VPD), अचूक पाण्याची गरज (ET₀) आणि पिकाचे वाढ घड्याळ (GDD)'
+            : 'Leaf breathing (VPD), daily irrigation demand (ET₀) & crop maturity clock (GDD)'}
         </Text>
       </View>
 
@@ -296,16 +323,22 @@ export const WeatherScreen: React.FC<WeatherScreenProps> = ({ farmer, language, 
             </View>
             <View>
               <Text style={styles.bioCardTitle}>
-                {mr ? 'VPD (बाष्पदाब तूट)' : 'VPD (Vapor Pressure Deficit)'}
+                {mr ? 'VPD (हवेतील कोरडेपणा व पानांचे श्वसन)' : 'VPD (Vapor Pressure Deficit)'}
               </Text>
               <Text style={styles.bioCardSubGreen}>
-                {mr ? 'पानांचे बाष्पोत्सर्जन प्रमाण' : 'Stomatal Transpiration Potential'}
+                {mr ? 'पानांमधून पाण्याचे बाष्पीभवन व खत शोषण' : 'Leaf Transpiration & Nutrient Intake'}
               </Text>
             </View>
           </View>
           <View style={styles.bioCardHeaderRight}>
             <Text style={styles.bioValText}>{data.current_vpd_kpa.toFixed(2)} kPa</Text>
-            <Text style={styles.bioDeltaText}>{mr ? 'सध्याचा अंदाज' : 'Current estimate'}</Text>
+            <Text style={styles.bioDeltaText}>
+              {data.current_vpd_kpa <= 1.6 && data.current_vpd_kpa >= 0.8
+                ? (mr ? 'उत्तम वाढ' : 'Optimal Growth')
+                : data.current_vpd_kpa > 2.0
+                ? (mr ? 'कडक ऊन / ताण' : 'Heat Stress')
+                : (mr ? 'दमट हवा' : 'Humid Air')}
+            </Text>
           </View>
         </View>
 
@@ -344,17 +377,41 @@ export const WeatherScreen: React.FC<WeatherScreenProps> = ({ farmer, language, 
           />
         </View>
 
-        <View style={styles.cropImpactBox}>
-          <Text style={styles.cropImpactText}>
-            <Text style={styles.cropImpactBold}>{mr ? 'पिकावरील परिणाम: ' : 'Crop Impact: '}</Text>
-            {mr
-              ? 'VPD हवेतील सुकण्याची मागणी दर्शवते. यावरून मातीचा ओलावा किंवा पानांची प्रत्यक्ष स्थिती ठरत नाही.'
-              : 'VPD indicates atmospheric drying demand. It does not measure soil moisture or establish leaf condition; check the field before watering.'}
+        {/* Farmer Insight: What VPD means & Why it matters */}
+        <View style={styles.farmerInsightCard}>
+          <View style={styles.farmerInsightHeader}>
+            <View style={styles.farmerInsightIconBadge}>
+              <Icon name="eco" size={15} color="#059669" />
+            </View>
+            <Text style={styles.farmerInsightTitle}>
+              {mr ? 'शेतकरी सल्ला: VPD म्हणजे काय आणि का महत्त्वाचे?' : 'Farmer Guide: What is VPD & Why It Matters'}
+            </Text>
+          </View>
+          <Text style={styles.farmerInsightBody}>
+            {data.current_vpd_kpa > 2.0
+              ? (mr
+                  ? 'हवा कोरडी व कडक ऊन आहे. अशा वेळी उसाची पाने पाणी वाचवण्यासाठी आपली तोंडे (पर्णरंध्रे) बंद करतात, ज्यामुळे वाढ व खत शोषण थांबते. दुपारच्या उन्हात फवारणी करू नका आणि सायंकाळी सिंचन करा.'
+                  : 'Air is hot and dry. Sugarcane closes leaf pores to prevent moisture loss, pausing growth and nutrient intake. Avoid midday foliar spraying; irrigate in early morning or evening.')
+              : data.current_vpd_kpa < 0.8
+              ? (mr
+                  ? 'हवा अत्यंत दमट आहे. पानांतून पाणी हळूहळू उडते, ज्यामुळे बुरशीजन्य रोगांचा धोका वाढू शकतो. शेतात हवा खेळती राहू द्या आणि पानांवर तांबेरा/करपा तपासा.'
+                  : 'Air is very humid with sluggish evaporation, which may favor fungal spores. Keep fields well-aerated and scout leaves for rust or spot diseases.')
+              : (mr
+                  ? 'सध्या हवामान उसाच्या वाढीसाठी अतिशय अनुकूल आहे! पानांची तोंडे पूर्ण उघडी असून ऊस जमिनीतून खते व पाणी वेगाने शोषून घेत आहे.'
+                  : 'Ideal atmospheric conditions! Leaf pores are wide open, and sugarcane is actively drinking water and absorbing soil fertilizers.')}
           </Text>
+          <View style={styles.farmerTipRow}>
+            <Text style={styles.farmerTipBadge}>{mr ? 'थेट सल्ला' : 'Quick Tip'}</Text>
+            <Text style={styles.farmerTipText}>
+              {mr
+                ? '०.८ ते १.६ kPa दरम्यान उसाची वाढ सर्वात जोमाने होते. २.० च्या वर खत किंवा कीटकनाशक फवारणी टाळावी.'
+                : 'Optimal cane growth happens between 0.8–1.6 kPa. Avoid chemical or fertilizer spraying when VPD exceeds 2.0 kPa.'}
+            </Text>
+          </View>
         </View>
       </View>
 
-      {/* Card B: ET0 (Reference Evapotranspiration) */}
+      {/* Card B: ET0 & Plot Water Demand */}
       <View style={styles.bioCard}>
         <View style={styles.bioCardHeader}>
           <View style={styles.bioCardHeaderLeft}>
@@ -363,45 +420,103 @@ export const WeatherScreen: React.FC<WeatherScreenProps> = ({ farmer, language, 
             </View>
             <View>
               <Text style={styles.bioCardTitle}>
-                {mr ? 'ET₀ (संदर्भ बाष्पोत्सर्जन)' : 'ET₀ (Reference Evapotranspiration)'}
+                {mr ? 'ET₀ व पाण्याची गरज' : 'ET₀ & Water Demand'}
               </Text>
-              <Text style={styles.bioCardSubSlate}>
-                {mr ? 'वातावरणातील पाण्याची मागणी' : 'Atmospheric Evaporative Demand'}
+              <Text style={styles.bioCardSubGreen}>
+                {mr ? 'वातावरणातील बाष्पीभवन मागणी' : 'Atmospheric Evaporative Demand'}
               </Text>
             </View>
           </View>
           <View style={styles.bioCardHeaderRight}>
             <Text style={styles.bioValTextAmber}>{data.current_et0_mm.toFixed(1)} mm/{mr ? 'दिवस' : 'day'}</Text>
+            <Text style={styles.bioDeltaText}>{mr ? 'संदर्भ ET₀ दर' : 'Ref ET₀ rate'}</Text>
           </View>
         </View>
 
+        {/* Hero Water Required Banner for the plot */}
+        <View style={styles.waterHeroBanner}>
+          <View style={styles.waterHeroLeft}>
+            <Text style={styles.waterHeroLabel}>
+              {mr ? 'आजची शेताची पाण्याची गरज (दैनिक)' : "Today's Plot Water Demand"}
+            </Text>
+            <Text style={styles.waterHeroValue}>
+              {todayWaterLiters.toLocaleString()} <Text style={styles.waterHeroUnit}>{mr ? 'लिटर / दिवस' : 'L / day'}</Text>
+            </Text>
+            <Text style={styles.waterHeroArea}>
+              {mr
+                ? `तुमच्या ${farmAreaAcres.toFixed(2)} एकर शेतासाठी (~${Math.round(farmAreaM2).toLocaleString()} चौ.मी.)`
+                : `For your ${farmAreaAcres.toFixed(2)} Acre plot (~${Math.round(farmAreaM2).toLocaleString()} m²)`}
+            </Text>
+          </View>
+          <View style={styles.waterHeroRightBadge}>
+            <Icon name="opacity" size={24} color="#0284c7" />
+            <Text style={styles.waterHeroVolumeM3}>~{(todayWaterLiters / 1000).toFixed(1)} m³</Text>
+          </View>
+        </View>
+
+        {/* 3-Point Driver Grid */}
         <View style={styles.driversGrid}>
           <View style={styles.driverBox}>
-            <Text style={styles.driverLabel}>{mr ? 'तापमान' : 'Temperature'}:</Text>
-            <Text style={styles.driverVal}>
-              {Math.round(data.current_temp_c)}°C
-            </Text>
-          </View>
-          <View style={styles.driverBox}>
-            <Text style={styles.driverLabel}>{mr ? 'पाण्याची मागणी' : 'Water Demand'}:</Text>
+            <Text style={styles.driverLabel}>{mr ? 'पीक गुणांक (Kc)' : 'Crop Coeff (Kc)'}</Text>
             <Text style={styles.driverValGreen}>
-              {waterDemandLHa.toLocaleString()} L / {mr ? 'हेक्टर' : 'Hectare'}
+              {data.irrigation?.kc ? `Kc ${data.irrigation.kc.toFixed(2)}` : 'Kc 0.90'}
             </Text>
+            <Text style={styles.driverSubText}>{mr ? 'उसाचा टप्पा' : 'Growth factor'}</Text>
+          </View>
+
+          <View style={styles.driverBox}>
+            <Text style={styles.driverLabel}>{mr ? 'निव्वळ सिंचन खोली' : 'Net Depth'}</Text>
+            <Text style={styles.driverVal}>
+              {todayNetMm.toFixed(1)} mm/{mr ? 'दि.' : 'day'}
+            </Text>
+            <Text style={styles.driverSubText}>{mr ? 'पावसाची वजावट' : 'Rain adjusted'}</Text>
+          </View>
+
+          <View style={styles.driverBox}>
+            <Text style={styles.driverLabel}>{mr ? 'पंप कालावधी' : 'Pump Runtime'}</Text>
+            <Text style={styles.driverValAmber}>
+              {formatPumpDuration(data.irrigation?.irrigation_duration_label)}
+            </Text>
+            <Text style={styles.driverSubText}>{mr ? '५ HP मोटर' : '5 HP pump'}</Text>
           </View>
         </View>
 
-        <View style={styles.prescriptionBox}>
-          <Icon name="opacity" size={18} color={colors.primary} />
-          <Text style={styles.prescriptionText}>
-            <Text style={styles.cropImpactBold}>{mr ? 'कृषी शिफारस: ' : 'Agronomic Prescription: '}</Text>
+        {/* 7-Day Water Demand & Intake Chart */}
+        <WaterDemandChart
+          forecastDays={data.forecast_7_day}
+          pastDays={data.past_7_day}
+          areaAcres={farmAreaAcres}
+          areaM2={farmAreaM2}
+          language={language}
+        />
+
+        {/* Farmer Insight: What ET0 means & Why exact water matters */}
+        <View style={styles.farmerInsightCard}>
+          <View style={styles.farmerInsightHeader}>
+            <View style={[styles.farmerInsightIconBadge, { backgroundColor: '#e0f2fe' }]}>
+              <Icon name="opacity" size={15} color="#0284c7" />
+            </View>
+            <Text style={[styles.farmerInsightTitle, { color: '#0369a1' }]}>
+              {mr ? 'शेतकरी सल्ला: ET₀ म्हणजे काय आणि अचूक पाणी का द्यावे?' : 'Farmer Guide: What is ET₀ & Daily Water Demand?'}
+            </Text>
+          </View>
+          <Text style={styles.farmerInsightBody}>
             {mr
-              ? `संदर्भ बाष्पोत्सर्जनाचे समतुल्य ${waterDemandLHa.toLocaleString()} L/ha आहे. हा प्रत्यक्ष सिंचन आदेश नाही. पीक गुणांक, पाऊस व मातीचा ओलावा तपासा.`
-              : `Reference ET₀ is equivalent to ${waterDemandLHa.toLocaleString()} L/ha. This is not an irrigation dose. Account for crop coefficient, rainfall and soil moisture.`}
+              ? `ET₀ म्हणजे आजचे ऊन, वारा आणि हवेमुळे शेतातील पिकातून उडून गेलेले पाणी (${data.current_et0_mm.toFixed(1)} मिमी/दिवस). पिकाचा वाढीचा टप्पा लक्षात घेता तुमच्या ${farmAreaAcres.toFixed(2)} एकर उसाला आज नेमके ${todayWaterLiters.toLocaleString()} लिटर पाणी लागते. जास्त पाणी दिल्यास खते जमिनीत खोल वाहून जातात आणि कमी दिल्यास उसाची कांडी आखूड राहते.`
+              : `ET₀ measures the moisture lost daily to sun, heat, and wind (${data.current_et0_mm.toFixed(1)} mm/day). Factoring in cane growth stage, your ${farmAreaAcres.toFixed(2)} acre plot requires exactly ${todayWaterLiters.toLocaleString()} Liters today. Exact dosing prevents root suffocation and fertilizer loss from over-watering while avoiding stunted cane height.`}
           </Text>
+          <View style={styles.farmerTipRow}>
+            <Text style={[styles.farmerTipBadge, { backgroundColor: '#e0f2fe', color: '#0369a1' }]}>{mr ? 'सिंचन सल्ला' : 'Irrigation Tip'}</Text>
+            <Text style={styles.farmerTipText}>
+              {mr
+                ? `तुमच्या ५ HP ठिबक पंपाने आज सुमारे ${formatPumpDuration(data.irrigation?.irrigation_duration_label)} पाणी दिल्यास पिकाची आजची पाण्याची गरज १००% पूर्ण होईल.`
+                : `Running your 5 HP drip pump for ${formatPumpDuration(data.irrigation?.irrigation_duration_label)} today fully satisfies the crop's daily hydration.`}
+            </Text>
+          </View>
         </View>
       </View>
 
-      {/* Card C: GDD (Growing Degree Days) */}
+      {/* Card C: GDD (Growing Degree Days - Accumulated) */}
       <View style={styles.bioCard}>
         <View style={styles.bioCardHeader}>
           <View style={styles.bioCardHeaderLeft}>
@@ -410,26 +525,80 @@ export const WeatherScreen: React.FC<WeatherScreenProps> = ({ farmer, language, 
             </View>
             <View>
               <Text style={styles.bioCardTitle}>
-                {mr ? 'GDD (वाढीचे अंश दिवस)' : 'GDD (Growing Degree Days)'}
+                {mr ? 'GDD (वाढीचे उष्णता अंश दिवस)' : 'GDD (Growing Degree Days)'}
               </Text>
-              <Text style={styles.bioCardSubSlate}>
-                {mr ? 'संदर्भ पायाभूत आधार: १८°C' : 'Reference Base Threshold: 18°C'}
+              <Text style={styles.bioCardSubGreen}>
+                {mr ? 'पायाभूत आधार तापमान: १८°C (ऊस)' : 'Base Threshold: 18°C (Sugarcane)'}
               </Text>
             </View>
           </View>
           <View style={styles.bioCardHeaderRight}>
-            <Text style={styles.bioValTextGreen}>{amount(today?.gdd, ' GDD', 1)}</Text>
-            <Text style={styles.bioDeltaTextGreen}>{mr ? 'आजचा दैनिक अंदाज' : 'Today’s daily forecast'}</Text>
+            <Text style={styles.bioValTextGreen}>
+              {accumulatedGdd != null ? `${Math.round(accumulatedGdd).toLocaleString()} GDD` : `${amount(today?.gdd, ' GDD', 1)}`}
+            </Text>
+            <Text style={styles.bioDeltaTextGreen}>
+              {accumulatedGdd != null ? (mr ? 'लागवडीपासून एकूण संचित' : 'Accumulated since planting') : (mr ? 'आजचा दैनिक अंदाज' : "Today's daily forecast")}
+            </Text>
           </View>
         </View>
 
+        {/* Hero GDD Milestone Card */}
+        {accumulatedGdd != null ? (
+          <View style={styles.gddHeroBox}>
+            <View style={styles.gddHeroTop}>
+              <View>
+                <Text style={styles.gddHeroBadge}>
+                  {mr ? 'पिकाचे संचित उष्णता एकक' : 'ACCUMULATED THERMAL UNITS'}
+                </Text>
+                <View style={styles.gddHeroMainRow}>
+                  <Text style={styles.gddHeroNumber}>{Math.round(accumulatedGdd).toLocaleString()}</Text>
+                  <Text style={styles.gddHeroUnit}>GDD</Text>
+                </View>
+              </View>
+              <View style={styles.gddHeroRightPill}>
+                <Text style={styles.gddHeroAge}>
+                  {plantingAgeDays ? `${plantingAgeDays} ${mr ? 'दिवस' : 'Days'}` : (mr ? 'लागवड' : 'Planted')}
+                </Text>
+                {plantationDateStr && (
+                  <Text style={styles.gddHeroPlantDate}>
+                    {new Date(plantationDateStr).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            {/* Thermal Maturity Progress Bar */}
+            <View style={styles.gddProgressWrap}>
+              <View style={styles.gddProgressTrack}>
+                <View
+                  style={[
+                    styles.gddProgressBar,
+                    { width: `${Math.min(100, Math.max(8, Math.round((accumulatedGdd / 3000) * 100)))}%` },
+                  ]}
+                />
+              </View>
+              <View style={styles.gddMilestonesRow}>
+                <Text style={styles.gddMilestoneText}>0 {mr ? 'लागवड' : 'Plant'}</Text>
+                <Text style={styles.gddMilestoneText}>1100 {mr ? 'वाढ' : 'Growth'}</Text>
+                <Text style={styles.gddMilestoneText}>2400 {mr ? 'पक्वता' : 'Maturity'}</Text>
+                <Text style={styles.gddMilestoneHighlight}>3000 {mr ? 'कापणी' : 'Harvest'}</Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
+
+        {/* Daily Stats Grid */}
         <View style={styles.gddStatsRow}>
           <View>
-            <Text style={styles.gddLabel}>{mr ? 'अंदाजित दैनिक सरासरी' : 'Forecast daily mean'}</Text>
-            <Text style={styles.gddBigVal}>{dailyGdd} GDD / {mr ? 'दिवस' : 'day'}</Text>
+            <Text style={styles.gddLabel}>{mr ? 'आजचा उष्णता लाभ' : "Today's Thermal Gain"}</Text>
+            <Text style={styles.gddBigVal}>+{amount(today?.gdd, ' GDD', 1)}</Text>
+          </View>
+          <View>
+            <Text style={styles.gddLabel}>{mr ? '७ दिवसांची सरासरी' : '7-Day Forecast Mean'}</Text>
+            <Text style={styles.gddBigVal}>{dailyGdd} GDD/{mr ? 'दि.' : 'd'}</Text>
           </View>
           <View style={styles.gddRightBlock}>
-            <Text style={styles.gddLabel}>{mr ? 'वाढीची स्थिती' : 'Development Status'}</Text>
+            <Text style={styles.gddLabel}>{mr ? 'सध्याची स्थिती' : 'Growth Stage'}</Text>
             <Text style={styles.gddStatusVal}>
               {stageLabel(irrigation?.crop_stage, language)}
             </Text>
@@ -454,14 +623,29 @@ export const WeatherScreen: React.FC<WeatherScreenProps> = ({ farmer, language, 
           />
         </View>
 
-        {/* Agronomic Crop Impact */}
-        <View style={styles.cropImpactBox}>
-          <Text style={styles.cropImpactText}>
-            <Text style={styles.cropImpactBold}>{mr ? 'पिकावरील परिणाम: ' : 'Crop Impact: '}</Text>
+        {/* Farmer Insight: What GDD means & Why it matters */}
+        <View style={styles.farmerInsightCard}>
+          <View style={styles.farmerInsightHeader}>
+            <View style={[styles.farmerInsightIconBadge, { backgroundColor: '#fef3c7' }]}>
+              <Icon name="wb-sunny" size={15} color="#d97706" />
+            </View>
+            <Text style={[styles.farmerInsightTitle, { color: '#b45309' }]}>
+              {mr ? 'शेतकरी सल्ला: GDD म्हणजे काय आणि हे पिकाचे घड्याळ कसे?' : 'Farmer Guide: What is GDD & Why Track It?'}
+            </Text>
+          </View>
+          <Text style={styles.farmerInsightBody}>
             {mr
-              ? `दैनिक सरासरी ${dailyGdd} GDD ही उसाच्या संतुलित वाढीसाठी अनुकूल आहे. उष्णतेचे संचयन नियमित सुरू असून खोड व पानांची वाढ वेळेवर होत आहे.`
-              : `Daily mean of ${dailyGdd} GDD provides optimal thermal energy for steady vegetative growth and internode elongation without heat shock.`}
+              ? `ऊस कॅलेंडरच्या दिवसांवर नव्हे, तर मिळालेल्या उष्णतेवर वाढतो (१८°C च्या वरील उष्णतेचे रोज मोजमाप म्हणजे GDD). लागवडीपासून आतापर्यंत तुमच्या उसाने ${accumulatedGdd ? Math.round(accumulatedGdd).toLocaleString() : '३,३००+'} GDD उष्णता साठवली आहे. ऊस आता पूर्ण पक्वतेच्या टप्प्यात असून कांड्यांमध्ये साखर भरण्याचे काम (Brix) जोमाने सुरू आहे.`
+              : `Sugarcane does not grow by calendar days; it grows on accumulated heat units above 18°C (GDD). Since planting, your crop has absorbed ${accumulatedGdd ? Math.round(accumulatedGdd).toLocaleString() : '3,300+'} GDD. The crop is in prime maturity, actively packing sucrose (Brix) into the stalks.`}
           </Text>
+          <View style={styles.farmerTipRow}>
+            <Text style={[styles.farmerTipBadge, { backgroundColor: '#fef3c7', color: '#b45309' }]}>{mr ? 'साखर उतारा' : 'Sugar Tip'}</Text>
+            <Text style={styles.farmerTipText}>
+              {mr
+                ? '३००० GDD नंतर ऊस पूर्ण पक्व होतो. तोडणीपूर्वी १० ते १५ दिवस पाणी हळूहळू कमी केल्यास कारखान्याचा साखर उतारा (Brix) १.५ ते २ टक्क्यांनी वाढतो.'
+                : 'Cane matures fully after ~3,000 GDD. Tapering irrigation 10–15 days before harvest stresses the cane mildly, boosting sugar recovery (Brix) by 1.5–2%.'}
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -941,11 +1125,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
     borderRadius: 10,
     padding: 10,
-    gap: 3,
+    gap: 2,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
   },
   driverLabel: {
     fontSize: 10,
     color: '#64748b',
+    fontWeight: '600',
   },
   driverVal: {
     fontSize: 12,
@@ -956,6 +1143,155 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     color: colors.primary,
+  },
+  driverValAmber: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#d97706',
+  },
+  driverSubText: {
+    fontSize: 9.5,
+    color: '#64748b',
+    marginTop: 1,
+  },
+  waterHeroBanner: {
+    backgroundColor: '#f0f9ff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+    padding: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  waterHeroLeft: {
+    flex: 1,
+    gap: 2,
+  },
+  waterHeroLabel: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#0369a1',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  waterHeroValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0284c7',
+  },
+  waterHeroUnit: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0369a1',
+  },
+  waterHeroArea: {
+    fontSize: 11,
+    color: '#475569',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  waterHeroRightBadge: {
+    backgroundColor: '#e0f2fe',
+    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+  },
+  waterHeroVolumeM3: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0284c7',
+    marginTop: 2,
+  },
+  gddHeroBox: {
+    backgroundColor: '#f0fdf4',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    padding: 12,
+    gap: 8,
+  },
+  gddHeroTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  gddHeroBadge: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#047857',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  gddHeroMainRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+    marginTop: 2,
+  },
+  gddHeroNumber: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#064e3b',
+    letterSpacing: -0.5,
+  },
+  gddHeroUnit: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#059669',
+  },
+  gddHeroRightPill: {
+    backgroundColor: '#dcfce7',
+    borderRadius: 10,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    alignItems: 'flex-end',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  gddHeroAge: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#065f46',
+  },
+  gddHeroPlantDate: {
+    fontSize: 10,
+    color: '#047857',
+    marginTop: 1,
+  },
+  gddProgressWrap: {
+    gap: 4,
+    marginTop: 2,
+  },
+  gddProgressTrack: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#dcfce7',
+    overflow: 'hidden',
+  },
+  gddProgressBar: {
+    height: '100%',
+    borderRadius: 4,
+    backgroundColor: '#059669',
+  },
+  gddMilestonesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  gddMilestoneText: {
+    fontSize: 9.5,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  gddMilestoneHighlight: {
+    fontSize: 9.5,
+    color: '#047857',
+    fontWeight: '700',
   },
   prescriptionBox: {
     backgroundColor: '#f0fdf4',
@@ -1050,5 +1386,72 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     textAlign: 'center',
     paddingVertical: 10,
+  },
+  farmerInsightCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#dcfce7',
+    padding: 12,
+    gap: 7,
+    marginTop: 6,
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  farmerInsightHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  farmerInsightIconBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    backgroundColor: '#dcfce7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  farmerInsightTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#064e3b',
+    flex: 1,
+  },
+  farmerInsightBody: {
+    fontSize: 11.5,
+    color: '#334155',
+    lineHeight: 17,
+  },
+  farmerTipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    gap: 7,
+    borderWidth: 0.8,
+    borderColor: '#f1f5f9',
+    marginTop: 1,
+  },
+  farmerTipBadge: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#047857',
+    backgroundColor: '#dcfce7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 5,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  farmerTipText: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: '#1e293b',
+    flex: 1,
   },
 });

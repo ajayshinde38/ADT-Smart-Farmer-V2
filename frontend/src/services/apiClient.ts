@@ -8,6 +8,7 @@ import {
   DashboardData,
   HistoryData,
   VraSummary,
+  VRAPrescriptionData,
   FertigationScheduleData,
 } from '../types';
 
@@ -243,9 +244,14 @@ export class ApiClient {
     );
   }
 
-  // Returns NDVI-derived relative vigor zones. Never fertilizer prescriptions.
+  // Returns NDVI-derived relative vigor zones with 3-zone precision prescription
   static getVraSummary(farmId: string) {
     return this.request<VraSummary>(`/gis/plot/${farmId}/vra/summary`);
+  }
+
+  // Returns FertiNex 3-zone precision prescription directly
+  static getVraPrescription(farmId: string) {
+    return this.request<VRAPrescriptionData>(`/gis/plot/${farmId}/vra/prescription`);
   }
 
   // Generate ONE genuine spatial satellite layer.

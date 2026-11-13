@@ -272,11 +272,35 @@ def get_vra_zone_summary(
     farm_id: UUID,
     caller_id: UUID = Depends(require_authorized_farmer),
 ):
-    """Exploratory NDVI spatial zones; no fertilizer rate advice."""
-    _owned_farm(farm_id, caller_id)
-    from app.modules.gis.vra import ndvi_vra_zones
+    """Exploratory NDVI spatial zones with FertiNex 3-zone precision prescription."""
+    farm = _owned_farm(farm_id, caller_id)
+    from app.modules.gis.vra import ndvi_vra_zones, compute_vra_precision_zones
     ndvi_png = service.get_raster_png_bytes(farm_id, "ndvi")
     if not ndvi_png:
         raise HTTPException(status_code=404, detail="Generate an NDVI raster first")
     _, summary = ndvi_vra_zones(ndvi_png)
+    summary["prescription"] = compute_vra_precision_zones(farm, pixel_counts=summary.get("counts"))
     return summary
+
+
+@router.get("/plot/{farm_id}/vra/prescription")
+def get_vra_prescription(
+    farm_id: UUID,
+    caller_id: UUID = Depends(require_authorized_farmer),
+):
+    """FertiNex 3-Zone Variable Rate Application (VRA) Precision Prescription.
+    Returns targeted product prescriptions for Zone 1 (+25%), Zone 2 (100%), and Zone 3 (-25%).
+    Operates dynamically from Supabase farm profile, plantation date, and satellite indices.
+    """
+    farm = _owned_farm(farm_id, caller_id)
+    from app.modules.gis.vra import compute_vra_precision_zones, ndvi_vra_zones
+    pixel_counts = None
+    try:
+        ndvi_png = service.get_raster_png_bytes(farm_id, "ndvi")
+        if ndvi_png:
+            _, summary = ndvi_vra_zones(ndvi_png)
+            pixel_counts = summary.get("counts")
+    except Exception:
+        pixel_counts = None
+    return compute_vra_precision_zones(farm, pixel_counts=pixel_counts)
+

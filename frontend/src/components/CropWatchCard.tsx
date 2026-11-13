@@ -53,7 +53,7 @@ export const CropWatchCard = ({
     P7: 'पिठ्या ढेकूण',
   };
 
-  const symptoms: Record<string, string> = {
+  const cuesMr: Record<string, string> = {
     D7: 'उगवण कमी होणे किंवा कुजलेल्या कांड्या तपासा.',
     P4: 'वाळणाऱ्या बेटांच्या मुळांजवळ हुमणी तपासा.',
     D2: 'पानांवर तांबूस पुटकुळ्या तपासा.',
@@ -64,7 +64,7 @@ export const CropWatchCard = ({
     P7: 'पानांच्या आवरणाखाली पांढरे ढेकूण तपासा.',
   };
 
-  const cues: Record<string, string> = {
+  const cuesEn: Record<string, string> = {
     D7: 'Check poorly germinated or rotting setts.',
     P4: 'Check roots around wilting cane for C-shaped grubs.',
     D2: 'Look for reddish-brown pustules on leaves.',
@@ -73,6 +73,17 @@ export const CropWatchCard = ({
     P2: 'Check shoot holes and dead central shoots.',
     D3: 'Inspect affected stalks for red tissue with white patches.',
     P7: 'Check under leaf sheaths for white, waxy insects.',
+  };
+
+  const fullSymptomsMr: Record<string, string> = {
+    D7: 'उगवण कमी किंवा विरळ होणे, अननसासारखा गोडसर आंबट वास येऊन बेणे कुजणे, आतील नसा काळ्या पडणे आणि फुटवे अशक्त निघणे किंवा न निघणे.',
+    P4: "मुळांचे नुकसान, पाने पिवळी पडून बेट सुकणे किंवा वाळणे, पिकाची वाढ खुंटणे आणि मुळांच्या कार्यक्षेत्रातील मातीत 'C' आकाराच्या पांढऱ्या हुमणी अळ्या आढळणे.",
+    D2: 'पानांवर लांबट पिवळसर-तपकिरी ठिपके तयार होऊन दोन्ही बाजूंना तांबूस-तपकिरी ते नारिंगी रंगाच्या पुटकुळ्या (बारीक फोड) येणे आणि पाने सुकणे.',
+    D4: 'शेंड्यातून किंवा वाढीच्या टोकातून काळ्या चाबकासारखा लांबट पट्टा बाहेर पडणे; पाने अरुंद व ताठ होणे, बारीक कांड्या आणि अवाजवी फुटवे फुटणे.',
+    D1: 'कोवळ्या पानांच्या तळाशी सुरकुत्या पडणे, पाने पिळवटणे, लहान राहणे व पिवळे पडणे; शेंड्याची वाढ विकृत होणे, शेंडा कुजणे व कांडीच्या आत शिडीसारखे लाल पट्टे दिसणे.',
+    P2: 'नवीन पानांवर एका ओळीत छिद्रे (शॉट होल्स), पानाच्या मुख्य शिरेत लाल रंगाची भुयारे, वाळलेला मधला पोंगा (डेड हार्ट), आणि बगलफुटी फुटून शेंडा झाडू/गुच्छ सारखा दिसणे.',
+    D3: 'वरून ३-४ क्रमांकाची पाने पिवळी पडून वाळणे, कांडी उभी चिरल्यास आतील भाग गडद लाल दिसणे व त्यावर पांढरे आडवे पट्टे आढळणे आणि अल्कोहोल/आंबलेला वास येणे.',
+    P7: 'कांड्यांच्या पेऱ्यांवर पानाच्या आवरणाखाली गुलाबी-पांढऱ्या रंगाच्या पिठ्या ढेकणांचे पुंजके, मुंग्यांचा वावर आणि कांडीच्या सालीवर पांढरा मेणासारखा थर असणे.',
   };
 
   const unknownStage = checks.some((item) => item.stage_eligible == null);
@@ -105,7 +116,7 @@ export const CropWatchCard = ({
             <View style={styles.itemNameRow}>
               <View style={styles.riskDot} />
               <Text style={styles.name}>
-                {mr ? names[item.rule_id] || item.name : item.name.split(' (')[0]}
+                {mr ? item.name_mr || names[item.rule_id] || item.name : item.name.split(' (')[0]}
               </Text>
               <View style={styles.riskBadge}>
                 <Text style={styles.riskBadgeText}>
@@ -114,7 +125,13 @@ export const CropWatchCard = ({
               </View>
             </View>
             <Text style={styles.text}>
-              {mr ? symptoms[item.rule_id] : expanded ? item.symptoms : cues[item.rule_id]}
+              {mr
+                ? expanded
+                  ? item.symptoms_mr || fullSymptomsMr[item.rule_id] || cuesMr[item.rule_id]
+                  : cuesMr[item.rule_id]
+                : expanded
+                  ? item.symptoms
+                  : cuesEn[item.rule_id]}
             </Text>
           </View>
         ))

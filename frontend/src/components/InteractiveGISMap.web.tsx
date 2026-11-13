@@ -311,6 +311,7 @@ export const InteractiveGISMap: React.FC<InteractiveGISMapProps> = ({
   language = 'en',
   clipMode = 'polygon',
   showBbox = true,
+  selectedVraZone = 'all',
   mapHeight = 440,
   onInspectPixel,
 }) => {

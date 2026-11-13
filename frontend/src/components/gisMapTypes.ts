@@ -30,6 +30,7 @@ export interface InteractiveGISMapProps {
   authorizationToken?:string;
   clipMode?: 'polygon' | 'bbox';
   showBbox?: boolean;
+  selectedVraZone?: string;
   onInspectPixel?: (info: { layer: string; value: number; description: string }) => void;
 }
 

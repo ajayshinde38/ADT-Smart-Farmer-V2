@@ -362,11 +362,16 @@ def _parse_date(date_val: Any) -> Optional[date]:
     if isinstance(date_val, date):
         return date_val
     s = str(date_val).strip()
-    for fmt in ("%Y-%m-%d", "%d-%b-%Y", "%d %b %Y", "%d/%m/%Y", "%d-%m-%Y"):
+    for fmt in ("%Y-%m-%d", "%d-%b-%Y", "%d %b %Y", "%d/%m/%Y", "%d-%m-%Y", "%d %B %Y", "%B %d, %Y"):
         try:
             return datetime.strptime(s, fmt).date()
         except ValueError:
             continue
+    try:
+        clean_iso = s.split("T")[0].split(" ")[0]
+        return datetime.strptime(clean_iso, "%Y-%m-%d").date()
+    except Exception:
+        pass
     return None
 
 
@@ -404,7 +409,7 @@ def get_farm_fertigation_schedule(
         area_acre = 1.0
 
     days_since = (today - p_date).days if p_date else None
-    current_dap = days_since
+    current_dap = max(0, days_since) if days_since is not None else None
 
     schedules = _load_excel_schedules()
     sheet_key = "8.3-8.9" if ph_val > 8.2 else "6.0-8.2"
