@@ -17,6 +17,10 @@ from .sentinel import get_cdse_token
 CACHE_DIR = Path(__file__).resolve().parents[3] / '.cache' / 'satellite'
 KEYS = ('ndvi', 'evi', 'ndre', 'msavi', 'ndmi', 'ndwi')
 PROCESS_URL = 'https://sh.dataspace.copernicus.eu/process/v1'
+ALGORITHM_VERSION = '2026-11-03-pixel-centres-v3'
+RASTER_SCHEMA_VERSION = 2
+# A cloud-free composite can include older pixels. We disclose this date window.
+COMPOSITE_LOOKBACK_DAYS = 30
 
 # These palettes match frontend/src/utils/gisColorScale.ts.
 VEG_PALETTE = (
@@ -41,6 +45,7 @@ def cached_observation(farm_id):
 
         if (
             data.get('source') != 'copernicus_statistics'
+            or data.get('algorithm_version') != ALGORITHM_VERSION
             or not data.get('capture_date')
         ):
             return None
@@ -101,6 +106,7 @@ def select_observation(payload):
                 'capture_date': captured,
                 'cloud_coverage_pct': None,
                 'source': 'copernicus_statistics',
+                'algorithm_version': ALGORITHM_VERSION,
                 'last_checked_at': datetime.now(timezone.utc).isoformat(),
             }
 
@@ -110,7 +116,7 @@ def select_observation(payload):
 STATS_EVALSCRIPT = """//VERSION=3
 function setup() {
   return {
-    input: [{bands: ['B02','B04','B05','B08','B11','SCL','dataMask']}],
+    input: [{bands: ['B02','B03','B04','B05','B08','B11','SCL','dataMask']}],
     output: ['NDVI','EVI','NDRE','MSAVI','NDMI','NDWI']
       .map(id => ({id:id,bands:1,sampleType:'FLOAT32'}))
       .concat([{id:'dataMask',bands:1}])
@@ -124,6 +130,8 @@ function evaluatePixel(s) {
   const ndvi = ratio(s.B08,s.B04);
   const ndre = ratio(s.B08,s.B05);
   const ndmi = ratio(s.B08,s.B11);
+  // McFeeters open-water NDWI: green versus near infrared.
+  const ndwi = ratio(s.B03,s.B08);
 
   const evi = 2.5*(s.B08-s.B04)/
     (s.B08+6*s.B04-7.5*s.B02+1);
@@ -139,9 +147,9 @@ function evaluatePixel(s) {
     NDRE:[ndre],
     MSAVI:[msavi],
     NDMI:[ndmi],
-    NDWI:[ndmi],
+    NDWI:[ndwi],
     dataMask:[
-      valid && [ndvi,evi,ndre,msavi,ndmi].every(Number.isFinite)
+      valid && [ndvi,evi,ndre,msavi,ndmi,ndwi].every(Number.isFinite)
         ? 1
         : 0
     ]
@@ -200,6 +208,7 @@ async def refresh_observation(farm):
             },
             'data': [{
                 'type': 'sentinel-2-l2a',
+                'processing': {'upsampling': 'NEAREST', 'downsampling': 'NEAREST'},
                 'dataFilter': {
                     'mosaickingOrder': 'leastCC'
                 },
@@ -315,7 +324,7 @@ def _raster_bounds(geometry):
     return bbox, leaflet_bounds
 
 
-def _raster_dimensions(bbox):
+def _raster_dimensions(bbox, resolution=10):
     """Estimate approximately 10-metre output pixels."""
 
     west, south, east, north = bbox
@@ -332,129 +341,81 @@ def _raster_dimensions(bbox):
 
     width = max(
         1,
-        min(512, math.ceil(width_m / 10))
+        min(512, math.ceil(width_m / resolution))
     )
 
     height = max(
         1,
-        min(512, math.ceil(height_m / 10))
+        min(512, math.ceil(height_m / resolution))
     )
 
     return width, height
 
 
 def _raster_evalscript(index_name):
-    """Color genuine Sentinel-2 pixels using the existing V2 palettes."""
+    """Calculate six independent indices from authentic, cloud-masked scenes.
 
+    ORBIT mosaicking makes multiple real acquisitions available per pixel.
+    The first cloud-free sample is selected; no missing pixel is fabricated.
+    The result is a *multi-date composite*, never a single-scene snapshot.
+    """
     key = index_name.lower()
-
     if key not in KEYS:
-        raise ValueError(
-            f'Unsupported index: {index_name}'
-        )
+        raise ValueError(f'Unsupported index: {index_name}')
 
-    if key in ('ndmi', 'ndwi'):
-        palette = WATER_PALETTE
-    else:
-        palette = VEG_PALETTE
-
-    rgb_palette = [
-        [
-            int(color[1:3], 16),
-            int(color[3:5], 16),
-            int(color[5:7], 16),
-        ]
-        for color in palette
-    ]
-
-    palette_js = json.dumps(rgb_palette)
-
+    palette = WATER_PALETTE if key in ('ndmi', 'ndwi') else VEG_PALETTE
+    rgb_palette = [[int(h[1:3], 16), int(h[3:5], 16), int(h[5:7], 16)] for h in palette]
     return f"""//VERSION=3
-const colors = {palette_js};
-
+const colors = {json.dumps(rgb_palette)};
 function setup() {{
   return {{
-    input: [{{
-      bands: [
-        'B02','B04','B05','B08','B11','SCL','dataMask'
-      ]
-    }}],
-    output: {{
-      id: 'default',
-      bands: 4,
-      sampleType: 'UINT8'
-    }}
+    input: [{{bands:['B02','B03','B04','B05','B08','B11','SCL','dataMask']}}],
+    mosaicking: 'ORBIT',
+    output: {{id:'default',bands:4,sampleType:'UINT8'}}
   }};
 }}
-
-function evaluatePixel(s) {{
-  if (
-    s.dataMask !== 1 ||
-    [0,1,3,8,9,10,11].includes(s.SCL)
-  ) {{
-    return [0,0,0,0];
+function evaluatePixel(samples) {{
+  const ratio = (a,b) => (a+b !== 0 ? (a-b)/(a+b) : NaN);
+  // Choose a real, cloud-free Sentinel-2 sample at this pixel.
+  for (let i=0; i<samples.length; i++) {{
+    const s=samples[i];
+    if(s.dataMask !== 1 || [0,1,3,8,9,10,11].includes(s.SCL)) continue;
+    const ndvi=ratio(s.B08,s.B04);
+    const ndre=ratio(s.B08,s.B05);
+    const ndmi=ratio(s.B08,s.B11);
+    const ndwi=ratio(s.B03,s.B08); // McFeeters: water, not NDMI.
+    const evi=2.5*(s.B08-s.B04)/(s.B08+6*s.B04-7.5*s.B02+1);
+    const root=Math.pow(2*s.B08+1,2)-8*(s.B08-s.B04);
+    const msavi=root>=0 ? (2*s.B08+1-Math.sqrt(root))/2 : NaN;
+    const values={{ndvi,evi,ndre,msavi,ndmi,ndwi}};
+    const v=values['{key}'];
+    if(!Number.isFinite(v) || v < -1 || v > 1) continue;
+    const cls=Math.min(19,Math.max(0,Math.floor(Math.round((v+1)*10*1e8)/1e8)));
+    const color=colors[cls];
+    return [color[0],color[1],color[2],255];
   }}
-
-  const div = (a,b) =>
-    a+b !== 0 ? (a-b)/(a+b) : NaN;
-
-  const ndvi = div(s.B08,s.B04);
-  const ndre = div(s.B08,s.B05);
-  const ndmi = div(s.B08,s.B11);
-
-  const evi =
-    2.5*(s.B08-s.B04)/
-    (s.B08+6*s.B04-7.5*s.B02+1);
-
-  const root =
-    Math.pow(2*s.B08+1,2) -
-    8*(s.B08-s.B04);
-
-  const msavi =
-    root >= 0
-    ? (2*s.B08+1-Math.sqrt(root))/2
-    : NaN;
-
-  const values = {{
-    ndvi: ndvi,
-    evi: evi,
-    ndre: ndre,
-    msavi: msavi,
-    ndmi: ndmi,
-    ndwi: ndmi
-  }};
-
-  const value = values['{key}'];
-
-  if (
-    !Number.isFinite(value) ||
-    value < -1 ||
-    value > 1
-  ) {{
-    return [0,0,0,0];
-  }}
-
-  const cls = Math.min(
-    19,
-    Math.max(
-      0,
-      Math.floor(
-        Math.round((value+1)*10*1e8)/1e8
-      )
-    )
-  );
-
-  const rgb = colors[cls];
-
-  return [
-    rgb[0],
-    rgb[1],
-    rgb[2],
-    220
-  ];
+  return [0,0,0,0]; // transparent means no valid satellite observation.
 }}
 """
 
+
+def _field_pixel_mask(geometry, bounds, size):
+    """Test actual pixel centres in the geographic grid, respecting polygon holes."""
+    import numpy as np
+    from shapely.geometry import shape
+    from shapely import intersects_xy
+    width, height = size
+    west, south, east, north = bounds
+    polygon = shape(geometry)
+    if not polygon.is_valid or polygon.is_empty:
+        raise ValueError('Invalid farm geometry')
+    xs = west + (np.arange(width) + .5) * (east-west) / width
+    ys = north - (np.arange(height) + .5) * (north-south) / height
+    return intersects_xy(polygon, xs[None, :], ys[:, None])
+
+
+def _polygon_pixel_count(geometry, bounds, size):
+    return int(_field_pixel_mask(geometry, bounds, size).sum())
 
 async def fetch_genuine_raster(
     farm,
@@ -473,6 +434,7 @@ async def fetch_genuine_raster(
     day = date.fromisoformat(
         str(capture_date)[:10]
     )
+    start_date = day - timedelta(days=COMPOSITE_LOOKBACK_DAYS)
 
     if day > datetime.now(timezone.utc).date():
         raise ValueError(
@@ -483,7 +445,8 @@ async def fetch_genuine_raster(
 
     bbox, leaflet_bounds = _raster_bounds(geometry)
 
-    width, height = _raster_dimensions(bbox)
+    resolution = 20 if index_name.lower() in ('ndre', 'ndmi') else 10
+    width, height = _raster_dimensions(bbox, resolution)
 
     evalscript = _raster_evalscript(index_name)
 
@@ -508,10 +471,11 @@ async def fetch_genuine_raster(
             },
             'data': [{
                 'type': 'sentinel-2-l2a',
+                'processing': {'upsampling': 'NEAREST', 'downsampling': 'NEAREST'},
                 'dataFilter': {
                     'timeRange': {
                         'from': (
-                            f'{day.isoformat()}T00:00:00Z'
+                            f'{start_date.isoformat()}T00:00:00Z'
                         ),
                         'to': (
                             f'{day.isoformat()}T23:59:59Z'
@@ -557,18 +521,22 @@ async def fetch_genuine_raster(
             'Copernicus did not return a PNG image.'
         )
 
-    # Reject an entirely transparent image.
-    # This avoids advertising an empty scene as valid raster data.
+    # Report authentic coverage inside the field boundary, not the bounding box.
+    # Do not claim missing pixels are vegetation. No smoothing/interpolation.
     from PIL import Image
-
+    import numpy as np
     with Image.open(io.BytesIO(content)) as image:
-        alpha = image.convert('RGBA').getchannel('A')
-
-        if alpha.getextrema()[1] == 0:
-            raise RuntimeError(
-                'No valid cloud-free satellite pixels '
-                'on the selected date.'
-            )
+        rgba = np.array(image.convert('RGBA'))
+        inside = _field_pixel_mask(geometry, bbox, image.size)
+        rgba[~inside, 3] = 0
+        valid_pixels = int(np.count_nonzero((rgba[:, :, 3] > 0) & inside))
+        field_pixels = int(inside.sum())
+        if valid_pixels == 0 or field_pixels == 0:
+            raise RuntimeError('No cloud-free Sentinel-2 pixel centres inside this farm in the requested date window.')
+        coverage_pct = round(valid_pixels * 100.0 / field_pixels, 1)
+        output = io.BytesIO()
+        Image.fromarray(rgba).save(output, format='PNG')
+        content = output.getvalue()
 
     return {
         'png_bytes': content,
@@ -578,6 +546,12 @@ async def fetch_genuine_raster(
         'width': width,
         'height': height,
         'source': 'copernicus_process',
+        'algorithm_version': ALGORITHM_VERSION,
+        'raster_schema_version': RASTER_SCHEMA_VERSION,
+        'composite_start_date': start_date.isoformat(),
+        'composite_end_date': day.isoformat(),
+        'valid_pixel_coverage_pct': coverage_pct,
+        'resolution_meters': 20.0 if index_name.lower() in ('ndre', 'ndmi') else 10.0,
     }
 
 
@@ -614,11 +588,17 @@ async def save_genuine_raster_locally(
     metadata_file = destination / f'{key}.json'
 
     if target.exists() and metadata_file.exists():
-        return json.loads(
-            metadata_file.read_text(
-                encoding='utf-8'
-            )
-        )
+        try:
+            cached = json.loads(metadata_file.read_text(encoding='utf-8'))
+            if (cached.get('raster_schema_version') == RASTER_SCHEMA_VERSION
+                    and cached.get('algorithm_version') == ALGORITHM_VERSION
+                    and cached.get('composite_end_date') == day
+                    and cached.get('local_path') == str(target)):
+                return cached
+        except (OSError, ValueError, TypeError):
+            pass
+        # Old rasters were single-date and might contain the NDWI=NDMI bug.
+        # Refresh explicitly rather than silently reusing incompatible pixels.
 
     result = await fetch_genuine_raster(
         farm,

@@ -1,0 +1,1308 @@
+{
+  "_SCHEDULE_PH_LOW": [
+    {
+      "dap": 0,
+      "fertilizer": "Neem Cake",
+      "quantity": 40.0,
+      "unit": "kg",
+      "water": 0.0
+    },
+    {
+      "dap": 0,
+      "fertilizer": "10:26:26",
+      "quantity": 30.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 0,
+      "fertilizer": "Organic Manure",
+      "quantity": 500.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 0,
+      "fertilizer": "Fertera",
+      "quantity": 4.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 5,
+      "fertilizer": "Mycorrhiza",
+      "quantity": 100.0,
+      "unit": "gm",
+      "water": 200.0
+    },
+    {
+      "dap": 5,
+      "fertilizer": "Humic + Fulvic Acid",
+      "quantity": 100.0,
+      "unit": "gm",
+      "water": null
+    },
+    {
+      "dap": 7,
+      "fertilizer": "12:61:00",
+      "quantity": 2.0,
+      "unit": "kg",
+      "water": 300.0
+    },
+    {
+      "dap": 7,
+      "fertilizer": "Magnesium Sulphate",
+      "quantity": 1.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 9,
+      "fertilizer": "Corogen",
+      "quantity": 150.0,
+      "unit": "ml",
+      "water": 300.0
+    },
+    {
+      "dap": 15,
+      "fertilizer": "24:24:00",
+      "quantity": 10.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 15,
+      "fertilizer": "Organic Carbon",
+      "quantity": 1.0,
+      "unit": "lit",
+      "water": null
+    },
+    {
+      "dap": 22,
+      "fertilizer": "Phosphoric Acid",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 30,
+      "fertilizer": "Micronutrient Slurry",
+      "quantity": 10.0,
+      "unit": "lit",
+      "water": 100.0
+    },
+    {
+      "dap": 30,
+      "fertilizer": "Urea",
+      "quantity": 10.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 40,
+      "fertilizer": "Calcium Nitrate",
+      "quantity": 2.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 45,
+      "fertilizer": "Ammonium Sulphate",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": 0.0
+    },
+    {
+      "dap": 45,
+      "fertilizer": "Diammonium Phosphate",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 45,
+      "fertilizer": "Urea",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 45,
+      "fertilizer": "Poly Sulphate",
+      "quantity": 10.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 50,
+      "fertilizer": "Micronutrient Slurry",
+      "quantity": 15.0,
+      "unit": "lit",
+      "water": 100.0
+    },
+    {
+      "dap": 50,
+      "fertilizer": "24:24:00",
+      "quantity": 10.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 50,
+      "fertilizer": "Urea",
+      "quantity": 15.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 60,
+      "fertilizer": "Phosphoric Acid",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 60,
+      "fertilizer": "Ammonium Sulphate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 75,
+      "fertilizer": "Micronutrient Slurry",
+      "quantity": 15.0,
+      "unit": "lit",
+      "water": 100.0
+    },
+    {
+      "dap": 75,
+      "fertilizer": "24:24:00",
+      "quantity": 5.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 75,
+      "fertilizer": "Urea",
+      "quantity": 15.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 90,
+      "fertilizer": "Calcium Nitrate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 90,
+      "fertilizer": "13:00:45",
+      "quantity": 2.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 110,
+      "fertilizer": "Micronutrient Slurry",
+      "quantity": 15.0,
+      "unit": "lit",
+      "water": 100.0
+    },
+    {
+      "dap": 110,
+      "fertilizer": "24:24:00",
+      "quantity": 5.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 110,
+      "fertilizer": "Urea",
+      "quantity": 15.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 120,
+      "fertilizer": "Ammonium Sulphate",
+      "quantity": 50.0,
+      "unit": "kg",
+      "water": 0.0
+    },
+    {
+      "dap": 120,
+      "fertilizer": "09:24:24",
+      "quantity": 30.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 120,
+      "fertilizer": "Muriate of Potash",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 120,
+      "fertilizer": "Poly Sulphate",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 120,
+      "fertilizer": "Fertera",
+      "quantity": 4.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 125,
+      "fertilizer": "Calcium Nitrate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 125,
+      "fertilizer": "Boron",
+      "quantity": 250.0,
+      "unit": "gm",
+      "water": null
+    },
+    {
+      "dap": 140,
+      "fertilizer": "Phosphoric Acid",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 140,
+      "fertilizer": "Sulphate of Potash",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 140,
+      "fertilizer": "Ammonium Sulphate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 160,
+      "fertilizer": "Micronutrient Slurry",
+      "quantity": 15.0,
+      "unit": "lit",
+      "water": 100.0
+    },
+    {
+      "dap": 160,
+      "fertilizer": "Urea",
+      "quantity": 15.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 180,
+      "fertilizer": "Calcium Nitrate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 180,
+      "fertilizer": "13:00:45",
+      "quantity": 2.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 180,
+      "fertilizer": "Boron",
+      "quantity": 250.0,
+      "unit": "gm",
+      "water": null
+    },
+    {
+      "dap": 200,
+      "fertilizer": "Phosphoric Acid",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 200,
+      "fertilizer": "Sulphate of Potash",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 200,
+      "fertilizer": "Ammonium Sulphate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 210,
+      "fertilizer": "Micronutrient Slurry",
+      "quantity": 15.0,
+      "unit": "lit",
+      "water": 100.0
+    },
+    {
+      "dap": 210,
+      "fertilizer": "24:24:00",
+      "quantity": 5.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 210,
+      "fertilizer": "Urea",
+      "quantity": 10.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 230,
+      "fertilizer": "Calcium Nitrate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 230,
+      "fertilizer": "13:00:45",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 230,
+      "fertilizer": "Boron",
+      "quantity": 250.0,
+      "unit": "gm",
+      "water": null
+    },
+    {
+      "dap": 250,
+      "fertilizer": "Micronutrient Slurry",
+      "quantity": 15.0,
+      "unit": "lit",
+      "water": 100.0
+    },
+    {
+      "dap": 250,
+      "fertilizer": "24:24:00",
+      "quantity": 5.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 250,
+      "fertilizer": "Urea",
+      "quantity": 15.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 280,
+      "fertilizer": "Calcium Nitrate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 280,
+      "fertilizer": "13:00:45",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 280,
+      "fertilizer": "Boron",
+      "quantity": 250.0,
+      "unit": "gm",
+      "water": null
+    },
+    {
+      "dap": 290,
+      "fertilizer": "Micronutrient Slurry",
+      "quantity": 15.0,
+      "unit": "lit",
+      "water": 100.0
+    },
+    {
+      "dap": 300,
+      "fertilizer": "24:24:00",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 300,
+      "fertilizer": "Urea",
+      "quantity": 15.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 300,
+      "fertilizer": "Muriate of Potash",
+      "quantity": 5.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 300,
+      "fertilizer": "13:00:45",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 310,
+      "fertilizer": "Phosphoric Acid",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 310,
+      "fertilizer": "Muriate of Potash",
+      "quantity": 7.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 310,
+      "fertilizer": "Ammonium Sulphate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 320,
+      "fertilizer": "Calcium Nitrate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 320,
+      "fertilizer": "Boron",
+      "quantity": 100.0,
+      "unit": "gm",
+      "water": null
+    },
+    {
+      "dap": 330,
+      "fertilizer": "24:24:00",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 330,
+      "fertilizer": "Muriate of Potash",
+      "quantity": 7.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 340,
+      "fertilizer": "Micronutrient Slurry",
+      "quantity": 15.0,
+      "unit": "lit",
+      "water": 100.0
+    },
+    {
+      "dap": 350,
+      "fertilizer": "Urea",
+      "quantity": 20.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 350,
+      "fertilizer": "Muriate of Potash",
+      "quantity": 5.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 360,
+      "fertilizer": "24:24:00",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 360,
+      "fertilizer": "Phosphoric Acid",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 370,
+      "fertilizer": "Calcium Nitrate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 370,
+      "fertilizer": "Boron",
+      "quantity": 200.0,
+      "unit": "gm",
+      "water": null
+    },
+    {
+      "dap": 380,
+      "fertilizer": "Urea",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 380,
+      "fertilizer": "Muriate of Potash",
+      "quantity": 5.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 390,
+      "fertilizer": "Micronutrient Slurry",
+      "quantity": 15.0,
+      "unit": "lit",
+      "water": 100.0
+    },
+    {
+      "dap": 400,
+      "fertilizer": "Calcium Nitrate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 420,
+      "fertilizer": "Urea",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 420,
+      "fertilizer": "Muriate of Potash",
+      "quantity": 5.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 450,
+      "fertilizer": "Calcium Nitrate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    }
+  ],
+  "_SCHEDULE_PH_HIGH": [
+    {
+      "dap": 0,
+      "fertilizer": "Phosphogypsum",
+      "quantity": 250.0,
+      "unit": "kg",
+      "water": 0.0
+    },
+    {
+      "dap": 0,
+      "fertilizer": "Prome",
+      "quantity": 200.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 0,
+      "fertilizer": "Fertera",
+      "quantity": 4.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 5,
+      "fertilizer": "Mycorrhiza",
+      "quantity": 100.0,
+      "unit": "gm",
+      "water": 200.0
+    },
+    {
+      "dap": 5,
+      "fertilizer": "Humic + Fulvic Acid",
+      "quantity": 100.0,
+      "unit": "gm",
+      "water": null
+    },
+    {
+      "dap": 7,
+      "fertilizer": "12:61:00",
+      "quantity": 2.0,
+      "unit": "kg",
+      "water": 200.0
+    },
+    {
+      "dap": 7,
+      "fertilizer": "PlantoDrip",
+      "quantity": 1.0,
+      "unit": "lit",
+      "water": null
+    },
+    {
+      "dap": 9,
+      "fertilizer": "Corogen",
+      "quantity": 150.0,
+      "unit": "ml",
+      "water": 300.0
+    },
+    {
+      "dap": 22,
+      "fertilizer": "Phosphoric Acid",
+      "quantity": 2.5,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 22,
+      "fertilizer": "Ammonium Sulphate",
+      "quantity": 2.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 30,
+      "fertilizer": "Micronutrient Slurry",
+      "quantity": 10.0,
+      "unit": "lit",
+      "water": 100.0
+    },
+    {
+      "dap": 30,
+      "fertilizer": "Urea",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 40,
+      "fertilizer": "Calcium Nitrate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 45,
+      "fertilizer": "Ammonium Sulphate",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": 0.0
+    },
+    {
+      "dap": 45,
+      "fertilizer": "09:24:24",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 45,
+      "fertilizer": "Promo",
+      "quantity": 50.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 45,
+      "fertilizer": "Poly Sulphate",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 50,
+      "fertilizer": "24:24:00",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 50,
+      "fertilizer": "Humistar",
+      "quantity": 100.0,
+      "unit": "gm",
+      "water": null
+    },
+    {
+      "dap": 60,
+      "fertilizer": "Phosphoric Acid",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 60,
+      "fertilizer": "Ammonium Sulphate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 75,
+      "fertilizer": "Micronutrient Slurry",
+      "quantity": 15.0,
+      "unit": "lit",
+      "water": 100.0
+    },
+    {
+      "dap": 75,
+      "fertilizer": "Urea",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 90,
+      "fertilizer": "Calcium Nitrate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 90,
+      "fertilizer": "13:00:45",
+      "quantity": 2.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 110,
+      "fertilizer": "Micronutrient Slurry",
+      "quantity": 15.0,
+      "unit": "lit",
+      "water": 100.0
+    },
+    {
+      "dap": 110,
+      "fertilizer": "Urea",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 120,
+      "fertilizer": "Ammonium Sulphate",
+      "quantity": 50.0,
+      "unit": "kg",
+      "water": 0.0
+    },
+    {
+      "dap": 120,
+      "fertilizer": "09:24:24",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 120,
+      "fertilizer": "Muriate of Potash",
+      "quantity": 45.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 120,
+      "fertilizer": "Poly Sulphate",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 120,
+      "fertilizer": "Fertera",
+      "quantity": 4.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 125,
+      "fertilizer": "Calcium Nitrate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 125,
+      "fertilizer": "Boron",
+      "quantity": 250.0,
+      "unit": "gm",
+      "water": null
+    },
+    {
+      "dap": 140,
+      "fertilizer": "Phosphoric Acid",
+      "quantity": 2.5,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 140,
+      "fertilizer": "Muriate of Potash",
+      "quantity": 4.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 140,
+      "fertilizer": "Ammonium Sulphate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 160,
+      "fertilizer": "Micronutrient Slurry",
+      "quantity": 15.0,
+      "unit": "lit",
+      "water": 100.0
+    },
+    {
+      "dap": 160,
+      "fertilizer": "Urea",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 180,
+      "fertilizer": "Calcium Nitrate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 180,
+      "fertilizer": "Boron",
+      "quantity": 250.0,
+      "unit": "gm",
+      "water": null
+    },
+    {
+      "dap": 200,
+      "fertilizer": "24:24:00",
+      "quantity": 10.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 200,
+      "fertilizer": "Humistar",
+      "quantity": 100.0,
+      "unit": "gm",
+      "water": null
+    },
+    {
+      "dap": 210,
+      "fertilizer": "Micronutrient Slurry",
+      "quantity": 15.0,
+      "unit": "lit",
+      "water": 100.0
+    },
+    {
+      "dap": 210,
+      "fertilizer": "Urea",
+      "quantity": 10.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 220,
+      "fertilizer": "Calcium Nitrate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 220,
+      "fertilizer": "Boron",
+      "quantity": 200.0,
+      "unit": "gm",
+      "water": null
+    },
+    {
+      "dap": 230,
+      "fertilizer": "Phosphoric Acid",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 230,
+      "fertilizer": "Muriate of Potash",
+      "quantity": 5.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 230,
+      "fertilizer": "Urea",
+      "quantity": 20.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 250,
+      "fertilizer": "Micronutrient Slurry",
+      "quantity": 15.0,
+      "unit": "lit",
+      "water": 100.0
+    },
+    {
+      "dap": 250,
+      "fertilizer": "Urea",
+      "quantity": 10.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 280,
+      "fertilizer": "Calcium Nitrate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 290,
+      "fertilizer": "Micronutrient Slurry",
+      "quantity": 15.0,
+      "unit": "lit",
+      "water": 100.0
+    },
+    {
+      "dap": 300,
+      "fertilizer": "24:24:00",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 300,
+      "fertilizer": "Urea",
+      "quantity": 15.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 300,
+      "fertilizer": "Muriate of Potash",
+      "quantity": 5.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 300,
+      "fertilizer": "13:00:45",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 310,
+      "fertilizer": "Phosphoric Acid",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 310,
+      "fertilizer": "Muriate of Potash",
+      "quantity": 5.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 310,
+      "fertilizer": "Ammonium Sulphate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 320,
+      "fertilizer": "Calcium Nitrate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 320,
+      "fertilizer": "Boron",
+      "quantity": 100.0,
+      "unit": "gm",
+      "water": null
+    },
+    {
+      "dap": 330,
+      "fertilizer": "24:24:00",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 330,
+      "fertilizer": "Muriate of Potash",
+      "quantity": 5.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 340,
+      "fertilizer": "Micronutrient Slurry",
+      "quantity": 15.0,
+      "unit": "lit",
+      "water": 100.0
+    },
+    {
+      "dap": 350,
+      "fertilizer": "Urea",
+      "quantity": 20.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 350,
+      "fertilizer": "Muriate of Potash",
+      "quantity": 5.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 360,
+      "fertilizer": "24:24:00",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 360,
+      "fertilizer": "Phosphoric Acid",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 370,
+      "fertilizer": "Calcium Nitrate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 370,
+      "fertilizer": "Boron",
+      "quantity": 200.0,
+      "unit": "gm",
+      "water": null
+    },
+    {
+      "dap": 380,
+      "fertilizer": "Muriate of Potash",
+      "quantity": 5.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 380,
+      "fertilizer": "Urea",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 390,
+      "fertilizer": "Micronutrient Slurry",
+      "quantity": 15.0,
+      "unit": "lit",
+      "water": 100.0
+    },
+    {
+      "dap": 400,
+      "fertilizer": "Calcium Nitrate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 420,
+      "fertilizer": "Urea",
+      "quantity": 25.0,
+      "unit": "kg",
+      "water": 100.0
+    },
+    {
+      "dap": 420,
+      "fertilizer": "Muriate of Potash",
+      "quantity": 5.0,
+      "unit": "kg",
+      "water": null
+    },
+    {
+      "dap": 450,
+      "fertilizer": "Calcium Nitrate",
+      "quantity": 3.0,
+      "unit": "kg",
+      "water": 100.0
+    }
+  ],
+  "_FERTILIZER_NUTRIENTS": {
+    "09::24::24": [
+      9.0,
+      24.0,
+      24.0
+    ],
+    "9::24::24": [
+      9.0,
+      24.0,
+      24.0
+    ],
+    "09:24:24": [
+      9.0,
+      24.0,
+      24.0
+    ],
+    "9:24:24": [
+      9.0,
+      24.0,
+      24.0
+    ],
+    "10::26::26": [
+      10.0,
+      26.0,
+      26.0
+    ],
+    "10:26:26": [
+      10.0,
+      26.0,
+      26.0
+    ],
+    "12::61::00": [
+      12.0,
+      61.0,
+      0.0
+    ],
+    "12:61:00": [
+      12.0,
+      61.0,
+      0.0
+    ],
+    "13::00::45": [
+      13.0,
+      0.0,
+      45.0
+    ],
+    "13:00:45": [
+      13.0,
+      0.0,
+      45.0
+    ],
+    "24::24::00": [
+      24.0,
+      24.0,
+      0.0
+    ],
+    "24:24:00": [
+      24.0,
+      24.0,
+      0.0
+    ],
+    "urea": [
+      46.0,
+      0.0,
+      0.0
+    ],
+    "ammonium sulphate": [
+      20.6,
+      0.0,
+      0.0
+    ],
+    "muriate of potash": [
+      0.0,
+      0.0,
+      60.0
+    ],
+    "sulphate of potash": [
+      0.0,
+      0.0,
+      50.0
+    ],
+    "calcium nitrate": [
+      15.5,
+      0.0,
+      0.0
+    ],
+    "daiammonium phosphate": [
+      18.0,
+      46.0,
+      0.0
+    ],
+    "diammonium phosphate": [
+      18.0,
+      46.0,
+      0.0
+    ],
+    "dap": [
+      18.0,
+      46.0,
+      0.0
+    ],
+    "phosphoric acid": [
+      0.0,
+      52.0,
+      0.0
+    ],
+    "poly sulphate": [
+      0.0,
+      0.0,
+      14.0
+    ],
+    "neem cake": [
+      5.0,
+      1.0,
+      2.0
+    ],
+    "organic manure": [
+      0.5,
+      0.2,
+      0.5
+    ],
+    "prome": [
+      0.4,
+      10.4,
+      0.0
+    ],
+    "promo": [
+      0.4,
+      10.4,
+      0.0
+    ]
+  },
+  "source": "FertiNex/Fertigation Model/backend_django/app/services/fertigation_schedule.py; supplied reference, imported 2026-11-04"
+}

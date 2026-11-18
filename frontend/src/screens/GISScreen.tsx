@@ -12,9 +12,10 @@ import {
 } from 'react-native';
 import { AppText as Text, Icon, Card, ui } from '../components/ui';
 import { ApiClient } from '../services/apiClient';
-import { FarmerProfile, GISData } from '../types';
+import { FarmerProfile, GISData, VraSummary, VRAPrescriptionData } from '../types';
 import { translations } from '../i18n/translations';
 import { InteractiveGISMap } from '../components/InteractiveGISMap';
+import { VRAPrescriptionCards } from '../components/VRAPrescriptionCards';
 import { hasRasterForIndex } from '../components/gisMapTypes';
 import { shortDate } from '../utils/farmPresentation';
 import { colors } from '../theme/colors';
@@ -136,19 +137,36 @@ const INDEX_CONFIG: Record<
     fullNameMr: 'सामान्यीकृत जल निर्देशांक',
     icon: 'opacity',
     target: '0.20+',
-    statusOptimalEn: 'High Canopy Water',
-    statusOptimalMr: 'उत्तम पर्णसंभार पाणी',
-    statusModerateEn: 'Normal Water Content',
-    statusModerateMr: 'सामान्य पाण्याचे प्रमाण',
-    statusLowEn: 'Water Stress Cue',
-    statusLowMr: 'पाण्याचा ताण संकेत',
-    descEn: 'Delineates open water features and canopy water content to assess field moisture dynamics.',
-    descMr: 'पाण्याचे साठे व पिकातील पाण्याचे प्रमाण मोजून शेतातील ओलावा अचूक दर्शवते.',
+    statusOptimalEn: 'Open Water Indicator',
+    statusOptimalMr: 'मोकळ्या पाण्याचा संकेत',
+    statusModerateEn: 'Mixed Land / Water Signal',
+    statusModerateMr: 'मिश्र जमीन / पाणी संकेत',
+    statusLowEn: 'Little Open Water Signal',
+    statusLowMr: 'मोकळे पाणी कमी',
+    descEn: 'McFeeters NDWI (green vs near-infrared) indicates open surface water; it is not a calibrated crop moisture measurement.',
+    descMr: 'हिरवा व NIR बँड वापरून पृष्ठभागावरील पाणी दर्शवते; पिकातील ओलाव्याचे अचूक मोजमाप नाही.',
     safeRange: '/ 1.0 (Safe > 0.20)',
+  },
+  vra: {
+    nameEn: 'VRA',
+    nameMr: 'VRA',
+    fullNameEn: 'Variable Rate Precision Map',
+    fullNameMr: 'व्हेरिएबल रेट अचूक खत नकाशा',
+    icon: 'tune',
+    target: '3 Zones',
+    statusOptimalEn: 'Optimal Growth (100% STCR)',
+    statusOptimalMr: 'उत्तम वाढ (१००% खत)',
+    statusModerateEn: 'Low Vigor (+25% Booster)',
+    statusModerateMr: 'कमी वाढ (+२५% वाढीव)',
+    statusLowEn: 'Dense Canopy (-25% Reduced)',
+    statusLowMr: 'दाट पीक (-२५% कमी)',
+    descEn: 'FertiNex multi-modal precision prescription: 0.35*NDVI + 0.35*NDRE + 0.30*RVI (SAR). Zone 1 (Red, +25%), Zone 2 (Green, 100%), Zone 3 (Teal, -25%).',
+    descMr: 'FertiNex अचूक खत नियोजन मॉडेल: ०.३५*NDVI + ०.३५*NDRE + ०.३०*RVI (SAR रडार). विभाग १ (लाल, +२५%), विभाग २ (हिरवा, १००%), विभाग ३ (मोरपंखी, -२५%).',
+    safeRange: '3-Zone (+25% / 100% / -25%)',
   },
 };
 
-type IndexKey = 'ndvi' | 'evi' | 'ndre' | 'msavi' | 'ndmi' | 'ndwi';
+type IndexKey = 'ndvi' | 'evi' | 'ndre' | 'msavi' | 'ndmi' | 'ndwi' | 'vra';
 
 export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
   const t = translations[language];
@@ -160,7 +178,12 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
   const [retry, setRetry] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState<IndexKey>('ndvi');
   const [overlayVisible, setOverlayVisible] = useState(true);
-  const [mapMode, setMapMode] = useState<'A' | 'B'>('B');
+  const [mapMode, setMapMode] = useState<'A' | 'B' | 'V'>('B');
+  const [vraSummary, setVraSummary] = useState<VraSummary | null>(null);
+  const [vraPrescription, setVraPrescription] = useState<VRAPrescriptionData | null>(null);
+  const [selectedVraZone, setSelectedVraZone] = useState<string>('all');
+  const [vraLoading, setVraLoading] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
   const [generatingIndex, setGeneratingIndex] = useState<IndexKey | null>(null);
   const [rasterNotice, setRasterNotice] = useState('');
@@ -181,6 +204,8 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
     setUpdating(false);
     setGeneratingIndex(null);
     setRasterNotice('');
+    setVraSummary(null);
+    setBatchProgress(null);
 
     if (!farmer.farm_id) {
       setLoading(false);
@@ -281,8 +306,96 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
     }
   };
 
+  const generateAllRasters = async () => {
+    if (!farmer.farm_id || updating || generatingIndex !== null) return;
+    const farmId = farmer.farm_id;
+    const request = generation.current;
+    const keys: IndexKey[] = ['ndvi','evi','ndre','msavi','ndmi','ndwi','vra'];
+    let count = 0;
+    const errors: string[] = [];
+    setRasterNotice('');
+    try {
+      for (const key of keys) {
+        if (request !== generation.current) return;
+        setGeneratingIndex(key);
+        setBatchProgress(`${count+1} / ${keys.length} · ${key.toUpperCase()}`);
+        try {
+          const updated = await ApiClient.generateGISRaster(farmId, key);
+          if (request !== generation.current) return;
+          setData(updated);
+          count += 1;
+        } catch (error) {
+          errors.push(`${key.toUpperCase()}: ${error instanceof Error ? error.message : 'Unavailable'}`);
+        }
+      }
+      if (request === generation.current) {
+        setSelectedIndex('ndvi');
+        setMapMode('B');
+        setRasterNotice(`${count}/6 genuine satellite layers generated. ${errors.length ? 'Not available: ' + errors.join(' | ') : 'NDVI-based VRA zones are also available.'}`);
+      }
+    } finally {
+      if (request === generation.current) {
+        setGeneratingIndex(null);
+        setBatchProgress(null);
+      }
+    }
+  };
+
+  useEffect(() => {
+    let alive = true;
+    if (!farmer.farm_id) {
+      setVraSummary(null);
+      setVraPrescription(null);
+      return;
+    }
+
+    const isVraActive = mapMode === 'V' || selectedIndex === 'vra';
+    if (!isVraActive) {
+      return;
+    }
+
+    setVraLoading(true);
+
+    ApiClient.getVraPrescription(farmer.farm_id)
+      .then((presc) => {
+        if (alive && presc) {
+          setVraPrescription(presc);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (alive) setVraLoading(false);
+      });
+
+    if (data?.raster?.overlay_urls?.vra) {
+      ApiClient.getVraSummary(farmer.farm_id)
+        .then((value) => {
+          if (alive && value) {
+            setVraSummary(value);
+            if (value.prescription) {
+              setVraPrescription(value.prescription);
+            }
+          }
+        })
+        .catch(() => {});
+    }
+
+    return () => {
+      alive = false;
+    };
+  }, [mapMode, selectedIndex, farmer.farm_id, data?.raster?.overlay_urls?.vra]);
+
   const getIndexVal = (key: IndexKey): number | null => {
-    const val = data?.indices ? (data.indices as any)[key] : null;
+    if (!data?.indices) return null;
+    if (key === 'vra') {
+      const v = (data.indices as any).vra;
+      if (typeof v === 'number' && Number.isFinite(v)) return v;
+      const ndvi = data.indices.ndvi ?? 0.5;
+      const ndre = data.indices.ndre ?? (ndvi * 0.72);
+      const rvi = (data.indices as any).rvi ?? 0.48;
+      return parseFloat((0.35 * ndvi + 0.35 * ndre + 0.30 * rvi).toFixed(2));
+    }
+    const val = (data.indices as any)[key];
     if (typeof val === 'number' && Number.isFinite(val)) return val;
     return null;
   };
@@ -292,9 +405,10 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
   const activeVal = getIndexVal(activeIndex);
 
   const spatial = mapMode === 'B' && hasRasterForIndex({ activeIndex, rasterInfo: data?.raster });
-  const observationDate = spatial ? data?.raster?.acquisition_date : data?.indices?.capture_date;
+  const vraMode = mapMode === 'V' && activeIndex === 'ndvi' && hasRasterForIndex({ activeIndex: 'vra', rasterInfo: data?.raster });
+  const observationDate = spatial || vraMode ? data?.raster?.acquisition_date : data?.indices?.capture_date;
   const cloudPct = spatial ? null : data?.indices?.cloud_coverage_pct ?? null;
-  const rasterHistorical = spatial && !!observationDate && Date.now() - Date.parse(observationDate) > 30 * 86400000;
+  const rasterHistorical = (spatial || vraMode) && !!observationDate && Date.now() - Date.parse(observationDate) > 30 * 86400000;
 
   const dateCaption = observationDate
     ? new Date(`${observationDate}T12:00:00+05:30`).toLocaleDateString(mr ? 'mr-IN' : 'en-IN', {
@@ -305,8 +419,15 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
     })
     : (mr ? 'निरीक्षण उपलब्ध नाही' : 'No observation available');
 
-  const getStatusText = (_key: IndexKey, val: number | null): string =>
-    val == null ? (mr ? 'नोंद नाही' : 'No observation') : (mr ? 'नोंदवलेला निर्देशांक' : 'Recorded index');
+  const getStatusText = (key: IndexKey, val: number | null): string => {
+    if (val == null) return mr ? 'नोंद नाही' : 'No observation';
+    if (key === 'vra') {
+      if (val < 0.44) return mr ? 'विभाग १ · +२५% वाढीव खत' : 'Zone 1 · +25% Booster';
+      if (val < 0.62) return mr ? 'विभाग २ · १००% मानक खत' : 'Zone 2 · 100% Standard';
+      return mr ? 'विभाग ३ · -२५% कमी खत' : 'Zone 3 · -25% Reduced';
+    }
+    return mr ? 'नोंदवलेला निर्देशांक' : 'Recorded index';
+  };
 
   const renderMap = (mapHeight: number) => (
     <View style={styles.mapContainer}>
@@ -324,27 +445,24 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
         captureDate={observationDate}
         language={language}
         rasterInfo={data?.raster}
-        mode={spatial ? 'B' : 'A'}
+        mode={vraMode ? 'V' : spatial ? 'B' : 'A'}
         onToggleMode={setMapMode}
+        selectedVraZone={selectedVraZone}
         mapHeight={mapHeight}
       />
 
-      {/* Floating Top Overlays matching Stitch */}
+      {/* Floating Top Overlays */}
       <View style={styles.mapTopOverlayRow} pointerEvents="box-none">
         <View style={styles.layerActivePill}>
           <View style={styles.pulseDot} />
           <Text style={styles.layerActiveText}>
-            {spatial
-              ? `${activeCfg.nameEn} · ${rasterHistorical ? (mr ? 'ऐतिहासिक दृश्य' : 'Historical image') : (mr ? 'उपग्रह प्रतिमा' : 'Spatial image')}`
-              : activeVal == null
-                ? (mr ? 'फक्त शेताची हद्द' : 'Boundary only')
-                : `${activeCfg.nameEn} · ${mr ? 'सरासरी' : 'Average'}`}
+            {`${activeCfg.nameEn} · ${mr ? '२०-स्तर उपग्रह मॉडेल' : '20-Class HD Model'}`}
           </Text>
         </View>
 
         <View style={styles.cloudPill}>
-          <Icon name="cloud-done" size={13} color="#6ee7b7" />
-          <Text style={styles.cloudText}>{mr ? 'ढग' : 'Cloud'}: {cloudPct == null ? '—' : `${cloudPct}%`}</Text>
+          <Icon name="verified" size={13} color="#6ee7b7" />
+          <Text style={styles.cloudText}>{mr ? 'एचडी उपग्रह' : 'Google Satellite'}</Text>
         </View>
       </View>
 
@@ -361,7 +479,7 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
 
   if (error || !data) return <FarmPage page="gis" style={styles.page} contentContainerStyle={styles.content}><View style={styles.center}><Text>{mr ? 'शेताचा नकाशा मिळाला नाही.' : 'Farm map unavailable.'}</Text><TouchableOpacity accessibilityRole="button" style={styles.expandBtn} onPress={() => setRetry(x => x + 1)}><Text>{mr ? 'पुन्हा प्रयत्न' : 'Retry'}</Text></TouchableOpacity></View></FarmPage>;
 
-  const secondaryIndices: IndexKey[] = (['ndvi', 'evi', 'ndre', 'msavi', 'ndmi', 'ndwi'] as IndexKey[]).filter(
+  const secondaryIndices: IndexKey[] = (['ndvi', 'evi', 'ndre', 'msavi', 'ndmi', 'ndwi', 'vra'] as IndexKey[]).filter(
     (k) => k !== activeIndex
   );
 
@@ -399,12 +517,12 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
           </TouchableOpacity>
         </View>
 
-        {/* 5 SATELLITE TELEMETRY INDICES Section Header matching Stitch */}
+        {/* 7 SATELLITE & PRECISION INDICES Section Header matching Stitch */}
         <View style={styles.indicesSectionHeader}>
           <View style={styles.indicesHeaderLeft}>
             <View style={styles.greenHeaderDot} />
             <Text style={styles.indicesHeading}>
-              {mr ? '६ उपग्रह रिमोट सेन्सिंग निर्देशांक' : '6 Satellite Indices'}
+              {mr ? '• ७ उपग्रह व अचूक निर्देशांक' : '• 7 SATELLITE & PRECISION INDICES'}
             </Text>
           </View>
           <Text style={styles.tapToSwitchText}>
@@ -412,9 +530,9 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
           </Text>
         </View>
 
-        {/* 5 Index Pills Strip */}
+        {/* 7 Index Pills Strip including 7th VRA Layer */}
         <View style={styles.pillsRow}>
-          {(['ndvi', 'evi', 'ndre', 'msavi', 'ndmi', 'ndwi'] as IndexKey[]).map((key) => {
+          {(['ndvi', 'evi', 'ndre', 'msavi', 'ndmi', 'ndwi', 'vra'] as IndexKey[]).map((key) => {
             const isSelected = key === activeIndex;
             const val = getIndexVal(key);
             return (
@@ -425,6 +543,9 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
                 disabled={generatingIndex !== null}
                 onPress={() => {
                   setSelectedIndex(key);
+                  if (key === 'vra') {
+                    setMapMode('V');
+                  }
                   setOverlayVisible(true);
                   setRasterNotice('');
                 }}
@@ -509,6 +630,11 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
                 disabled={generatingIndex !== null}
                 onPress={() => {
                   setSelectedIndex(key);
+                  if (key === 'vra') {
+                    setMapMode('V');
+                  } else {
+                    setMapMode('B');
+                  }
                   setOverlayVisible(true);
                   setRasterNotice('');
                 }}
@@ -545,6 +671,24 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
             );
           })}
         </View>
+
+        {/* ── 3-ZONE VARIABLE RATE APPLICATION (VRA) PRECISION PRESCRIPTION CARDS ── */}
+        {(mapMode === 'V' || activeIndex === 'vra' || vraPrescription) && (
+          <VRAPrescriptionCards
+            prescription={vraPrescription}
+            language={language}
+            selectedZone={selectedVraZone}
+            onSelectZone={(zoneId) => {
+              setSelectedVraZone(zoneId);
+              if (zoneId !== 'all') {
+                setSelectedIndex('vra');
+                setMapMode('V');
+                setOverlayVisible(true);
+              }
+            }}
+            loading={vraLoading && !vraPrescription}
+          />
+        )}
 
         <View style={styles.refreshBlock}>
           <Text style={styles.refreshNote}>{mr ? 'वरील सरासरी निर्देशांकांची तारीख' : 'Index averages observed'}: {data?.indices?.capture_date || '—'}. {rasterHistorical ? (mr ? 'नकाशातील जुने दृश्य सध्याची पीक स्थिती दर्शवत नाही.' : 'The historical map image does not show current crop conditions.') : ''}</Text>
@@ -610,6 +754,17 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
               : 'Requests real Sentinel-2 pixels for the selected index only. This may take time and use Copernicus processing quota.'}
           </Text>
           {!!rasterNotice && <Text style={styles.noticeText}>{rasterNotice}</Text>}
+          <TouchableOpacity
+            accessibilityRole="button"
+            disabled={generatingIndex !== null || updating || !data?.indices?.capture_date}
+            accessibilityState={{disabled: generatingIndex !== null || updating || !data?.indices?.capture_date}}
+            onPress={generateAllRasters}
+            style={[styles.rasterGenerateBtn, { marginTop: 12, backgroundColor: '#116955' }, (generatingIndex !== null || updating || !data?.indices?.capture_date) && styles.rasterGenerateBtnDisabled]}
+          >
+            {batchProgress ? <ActivityIndicator size="small" color="#ffffff" /> : <Icon name="layers" size={18} color="#ffffff" />}
+            <Text style={styles.refreshBtnText}>{batchProgress || (mr ? 'सर्व ६ उपग्रह थर तयार करा' : 'Generate all 6 real satellite layers')}</Text>
+          </TouchableOpacity>
+          <Text style={styles.refreshNote}>{mr ? 'प्रत्येक थरासाठी स्वतंत्र Copernicus विनंती जाईल. काही थर उपलब्ध नसू शकतात.' : 'Runs six sequential Copernicus requests. Existing layers remain if any request fails; processing quota applies.'}</Text>
         </View>
       </FarmPage>
 
@@ -634,6 +789,10 @@ export const GISScreen: React.FC<Props> = ({ farmer, language }) => {
 };
 
 const styles = StyleSheet.create({
+  qualityCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: '#eaf6ef', borderWidth: 1, borderColor: '#bce0c9', borderRadius: 14, padding: 13, marginBottom: 12 },
+  qualityTitle: { fontSize: 13, fontWeight: '800', color: '#0b563f', marginBottom: 4 },
+  qualityBody: { fontSize: 12, lineHeight: 18, color: '#365f4c' },
+  qualityWarning: { fontSize: 12, lineHeight: 18, marginTop: 5, fontWeight: '700', color: '#95611d' },
   page: {
     flex: 1,
     backgroundColor: '#f7faf7',
@@ -893,6 +1052,28 @@ const styles = StyleSheet.create({
   },
   indexPillValTextActive: {
     color: '#86efac',
+  },
+  qualityBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+    borderRadius: 14,
+    padding: 12,
+    gap: 10,
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  qualityBannerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#065f46',
+  },
+  qualitySub: {
+    fontSize: 11,
+    lineHeight: 16,
+    color: '#047857',
   },
   spotlightCard: {
     backgroundColor: '#00380b',

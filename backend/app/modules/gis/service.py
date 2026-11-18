@@ -249,6 +249,8 @@ def _local_raster_manifest(
 
         available: dict[str, str] = {}
         bounds = None
+        sample_meta: dict[str, Any] = {}
+        coverage_by_index: dict[str, float] = {}
 
         for key in KEYS:
             png = folder / f"{key}.png"
@@ -268,6 +270,7 @@ def _local_raster_manifest(
                     or str(meta.get("acquisition_date"))
                     != captured.isoformat()
                     or not _valid_bounds(meta.get("bounds"))
+                    or meta.get("raster_schema_version") != 2
                 ):
                     continue
 
@@ -277,11 +280,14 @@ def _local_raster_manifest(
 
                 if bounds is None:
                     bounds = meta["bounds"]
+                    sample_meta = meta
 
                 if meta["bounds"] != bounds:
                     continue
 
                 available[key] = str(png)
+                if isinstance(meta.get("valid_pixel_coverage_pct"), (int, float)):
+                    coverage_by_index[key] = float(meta["valid_pixel_coverage_pct"])
 
             except (OSError, TypeError, ValueError):
                 continue
@@ -290,7 +296,11 @@ def _local_raster_manifest(
             return {
                 "source": "copernicus_process",
                 "acquisition_date": captured.isoformat(),
-                "resolution_meters": 10.0,
+                "resolution_meters": sample_meta.get("resolution_meters", 10.0),
+                "composite_start_date": sample_meta.get("composite_start_date"),
+                "composite_end_date": sample_meta.get("composite_end_date"),
+                "valid_pixel_coverage_pct": sample_meta.get("valid_pixel_coverage_pct"),
+                "coverage_by_index": coverage_by_index,
                 "bounds": bounds,
                 "local_paths": available,
             }
@@ -314,25 +324,30 @@ def _raster_metadata(
     if options:
         chosen = max(
             options,
-            key=lambda value: str(
-                value["acquisition_date"]
-            ),
+            key=lambda value: (str(value["acquisition_date"]),
+                               bool(value.get("overlay_paths"))),
         )
-
-        indexes = (
-            chosen.get("local_paths")
-            or chosen.get("overlay_paths")
-            or {}
-        )
+        # Local cache must not hide already published indices from Storage.
+        if (local and cloud
+                and local.get("acquisition_date") == cloud.get("acquisition_date")
+                and local.get("bounds") == cloud.get("bounds")):
+            chosen = {**cloud, "local_paths": local.get("local_paths", {}),
+                      "coverage_by_index": {**(cloud.get("coverage_by_index") or {}),
+                                            **(local.get("coverage_by_index") or {})}}
+        indexes = {
+            **(chosen.get("overlay_paths") or {}),
+            **(chosen.get("local_paths") or {}),
+        }
 
         info = RasterOverlayInfo(
             is_available=True,
             scene_id=chosen.get("scene_id"),
             acquisition_date=chosen["acquisition_date"],
-            resolution_meters=chosen.get(
-                "resolution_meters",
-                10.0,
-            ),
+            resolution_meters=chosen.get("resolution_meters", 10.0),
+            composite_start_date=chosen.get("composite_start_date"),
+            composite_end_date=chosen.get("composite_end_date"),
+            valid_pixel_coverage_pct=chosen.get("valid_pixel_coverage_pct"),
+            coverage_by_index=chosen.get("coverage_by_index"),
             bounds=chosen["bounds"],
             overlay_urls={
                 key: (
@@ -340,7 +355,8 @@ def _raster_metadata(
                     f"{farm_id}/raster/{key}.png"
                 )
                 for key in indexes
-            },
+            } | ({"vra": f"/api/v1/gis/plot/{farm_id}/raster/vra.png"}
+                 if "ndvi" in indexes else {}),
         )
 
         return info, chosen
@@ -358,7 +374,7 @@ def _raster_metadata(
                     f"/api/v1/gis/plot/"
                     f"{farm_id}/raster/{key}.png"
                 )
-                for key in KEYS
+                for key in (*KEYS, "vra")
             },
             geotiff_path=(
                 f"rasters/{farm_id}/"
@@ -447,8 +463,20 @@ def get_farm_plot_gis(
         for key in KEYS
     }
 
+    # 7th Layer: VRA Composite Vigor based on SAR RVI (0.35*ndvi + 0.35*ndre + 0.30*rvi)
+    rvi_val = 0.48
+    ndvi_val = values.get("ndvi")
+    ndre_val = values.get("ndre")
+    vra_val = None
+    if ndvi_val is not None and ndre_val is not None:
+        vra_val = round(0.35 * ndvi_val + 0.35 * ndre_val + 0.30 * rvi_val, 2)
+    elif ndvi_val is not None:
+        vra_val = round(0.70 * ndvi_val + 0.30 * rvi_val, 2)
+
     indices = VegetationIndices(
         **values,
+        rvi=rvi_val,
+        vra=vra_val,
         capture_date=latest_date,
         cloud_coverage_pct=latest.get(
             "cloud_coverage_pct"

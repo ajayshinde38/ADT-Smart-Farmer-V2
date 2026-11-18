@@ -12,6 +12,7 @@ import { AdvisoryScreen } from '../screens/AdvisoryScreen';
 import { PestDetectionScreen } from '../screens/PestDetectionScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { colors } from '../theme/colors';
+import { FertilizerWelcomeModal } from '../components/FertilizerWelcomeModal';
 
 interface RootNavigatorProps {
   farmer: FarmerProfile;
@@ -34,9 +35,9 @@ export const RootNavigator: React.FC<RootNavigatorProps> = ({ farmer, language, 
       case 'weather':
         return <WeatherScreen farmer={farmer} language={language} onScan={() => setActiveTab('pest')} />;
       case 'advisory':
-        return <AdvisoryScreen farmer={farmer} language={language} />;
+        return <AdvisoryScreen farmer={farmer} language={language} onScan={() => setActiveTab('pest')} />;
       case 'pest':
-        return <PestDetectionScreen farmer={farmer} language={language} onWeather={() => setActiveTab('weather')} />;
+        return <PestDetectionScreen farmer={farmer} language={language} onWeather={() => setActiveTab('weather')} onAdvisory={() => setActiveTab('advisory')} />;
       case 'alerts':
         return <AlertsScreen farmer={farmer} language={language} onNavigate={(page) => setActiveTab(page as any)} />;
       case 'settings':
@@ -48,14 +49,15 @@ export const RootNavigator: React.FC<RootNavigatorProps> = ({ farmer, language, 
 
   const tabs = [
     ['dashboard', 'home', mr ? 'मुख्यपृष्ठ' : 'Dashboard'],
-    ['advisory', 'psychology', mr ? 'सल्ला' : 'Advisory'],
-    ['pest', 'qr-code-scanner', mr ? 'पीक तपासणी' : 'AI Scan'],
     ['weather', 'wb-sunny', mr ? 'हवामान' : 'Weather'],
+    ['pest', 'qr-code-scanner', mr ? 'पीक तपासणी' : 'AI Scan'],
     ['gis', 'satellite', mr ? 'शेत नकाशा' : 'GIS Maps'],
+    ['advisory', 'psychology', mr ? 'सल्ला' : 'Advisory'],
   ] as const;
 
   return (
     <View style={styles.safeArea}>
+      <FertilizerWelcomeModal key={farmer.farm_id||'no-farm'} farmer={farmer} language={language} onAdvisory={()=>setActiveTab('advisory')}/>
       {/* Stitch Agri-Tech Top App Bar */}
       <View style={styles.topBar}>
         <TouchableOpacity
@@ -254,7 +256,7 @@ const styles = StyleSheet.create({
   languageText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#334155',
+    color: '#344155',
   },
   bellBtn: {
     position: 'relative',

@@ -49,6 +49,8 @@ export interface GISData {
     msavi?: number | null;
     ndmi?: number | null;
     ndwi?: number | null;
+    rvi?: number | null;
+    vra?: number | null;
     capture_date?: string | null;
     cloud_coverage_pct: number | null;
   };
@@ -57,6 +59,10 @@ export interface GISData {
     scene_id?: string;
     acquisition_date?: string;
     resolution_meters?: number;
+    composite_start_date?: string | null;
+    composite_end_date?: string | null;
+    valid_pixel_coverage_pct?: number | null;
+    coverage_by_index?: Record<string, number> | null;
     bounds?: number[][];
     overlay_urls?: Record<string, string>;
   } | null;
@@ -101,6 +107,9 @@ export interface WeatherData {
   cumulative_gdd: number;
   forecast_7d_gdd?: number;
   cumulative_gdd_since_planting?: number | null;
+  planting_age_days?: number | null;
+  farm_area_acres?: number | null;
+  farm_area_m2?: number | null;
   plantation_date?: string | null;
   et0_source?: string;
   irrigation: {
@@ -131,10 +140,28 @@ export interface WeatherData {
     wind_kmh?: number | null;
     weather_condition: string;
     weather_icon: string;
+    water_demand_liters?: number | null;
+    etc_mm?: number | null;
+  }>;
+  past_7_day?: Array<{
+    date: string;
+    temp_max_c: number;
+    temp_min_c: number;
+    humidity_pct: number | null;
+    rainfall_mm: number;
+    precipitation_probability?: number;
+    et0_mm: number;
+    vpd_kpa?: number | null;
+    gdd?: number;
+    wind_kmh?: number | null;
+    weather_condition: string;
+    weather_icon: string;
+    water_demand_liters?: number | null;
+    etc_mm?: number | null;
   }>;
   crop_watch?: Array<{
-    rule_id: string; name: string; category: string; score: number | null; criteria_tested: number;
-    stage_eligible: boolean | null; date: string; symptoms: string; evidence_grade: string;
+    rule_id: string; name: string; name_mr?: string; category: string; score: number | null; criteria_tested: number;
+    stage_eligible: boolean | null; date: string; symptoms: string; symptoms_mr?: string; evidence_grade: string;
   }>;
   weather_provider?: string;
   source_type?: string;
@@ -149,13 +176,74 @@ export interface AdvisoryData {
   soil_status:{ph:number|null;ec:number|null;oc:number|null;nitrogen_kg_ha:number|null;phosphorus_kg_ha:number|null;potassium_kg_ha:number|null;organic_manure_ton_ha:number|null;organic_manure_ton_acre:number|null};
   rdf:null|{expected_yield_ton_ha:number;rdf_n_kg_ha:number;rdf_p_kg_ha:number;rdf_k_kg_ha:number;rdf_n_kg_acre:number;rdf_p_kg_acre:number;rdf_k_kg_acre:number;basal_dose:unknown;final_fertigation_n_kg_acre:number|null;final_fertigation_p_kg_acre:number|null;final_fertigation_k_kg_acre:number|null};
   weekly_schedules:unknown[];
-  planning:{generated_at:string;status:string;missing_inputs:string[];crop:FieldContext['crop'];target_yield_ton_ha:number;target_source:string;nutrient_totals_kg:Record<string,number>|null;assumptions:string[];product_prescription_available:boolean;application_history_available:boolean;reference_stage_splits:Array<{stage:string;days:string;N_percent:number;P_percent:number;K_percent:number}>;calendar_schedule_available:boolean;rainfall_today_forecast_mm:number|null;weather_guidance:string;weather_note:string};
+  schedule?: FertigationScheduleData | null;
+  // FertiNex extension is optional for compatibility with older hosted APIs.
+  planning:{fertinex?:{model:string;season:string|null;season_source:string;current_dap:number|null;season_cutoff_dap:number|null;ph_band:string|null;status:string;note:string;missing_inputs:string[];bounded_target_kg_acre:Record<string,number>|null;applied_kg_acre:Record<string,number>|null;remaining_kg_acre:Record<string,number>|null;remaining_kg_farm:Record<string,number>|null;schedule:Array<{dap:number;date:string;status:string;products:Array<{product:string;kg_per_acre:number;kg_farm:number}>}>;balance:null|{delivered_kg_acre:Record<string,number>;unmet_kg_acre:Record<string,number>;excess_kg_acre:Record<string,number>}};generated_at:string;status:string;missing_inputs:string[];crop:FieldContext['crop'];target_yield_ton_ha:number;target_source:string;nutrient_totals_kg:Record<string,number>|null;assumptions:string[];product_prescription_available:boolean;application_history_available:boolean;reference_stage_splits:Array<{stage:string;days:string;N_percent:number;P_percent:number;K_percent:number}>;calendar_schedule_available:boolean;rainfall_today_forecast_mm:number|null;weather_guidance:string;weather_note:string};
 }
+export interface FertigationProduct {
+  fertilizer: string;
+  quantity: number;
+  quantity_per_acre: number;
+  unit: string;
+  water_liters: number | null;
+  water_liters_per_acre: number | null;
+}
+
+export interface FertigationPeriod {
+  dap: number;
+  period: string;
+  application_date: string;
+  start_date: string;
+  end_date: string;
+  days_remaining: number;
+  status: string;
+  recommendation_text: string;
+  products: FertigationProduct[];
+  target_n: number;
+  target_p: number;
+  target_k: number;
+  farm_target_n: number;
+  farm_target_p: number;
+  farm_target_k: number;
+  target_n_per_acre: number;
+  target_p_per_acre: number;
+  target_k_per_acre: number;
+  is_upcoming: boolean;
+  applied?: boolean;
+}
+
+export interface FertigationScheduleData {
+  ph_range: string;
+  ph_sheet: string;
+  season: string;
+  season_key: string;
+  max_dap: number;
+  plantation_date_str: string | null;
+  current_dap: number | null;
+  login_dap: number;
+  area_acre: number;
+  active_upcoming_dose: FertigationPeriod | null;
+  current_period: FertigationPeriod | null;
+  farmer_periods: FertigationPeriod[];
+  application_groups: FertigationPeriod[];
+  periods: FertigationPeriod[];
+  applied_till_date: { N: number; P: number; K: number };
+  farm_applied_till_date: { N: number; P: number; K: number };
+  bounded_target_kg_acre: { N: number; P: number; K: number };
+  farm_stcr_target_npk: { N: number; P: number; K: number };
+  target_season_npk: { N: number; P: number; K: number };
+  compliance_logs?: Record<string, { period: string; applied: boolean; notes?: string; logged_at?: string }>;
+}
+
 export interface ScanRecord {id:string;farm_id:string;farmer_id:string;detected_disease:string;confidence_score:number;affected_percentage:number;severity_level:string;status:string;created_at:string;has_image:boolean;treatment_summary?:string}
 export interface HistoryData<T=ScanRecord>{available:boolean;items:T[];reason?:string|null;limit?:number}
 export interface DashboardData{farm_id:string;gis:GISData|null;weather:WeatherData|null;advisory:AdvisoryData|null;field_context:FieldContext}
 
 export interface DiseaseDetectionResult {
+  model_results?:Array<{model:string;task:string;status:string;threshold:number;minimum_affected_percentage?:number;predictions:Array<{disease:string;score:number;detected:boolean;affected_percentage?:number}>}>;
+  detected_diseases?:string[];
+  decision_reason?:string|null;
+  fusion_policy?:string|null;
   record_id?:string|null;record_saved?:boolean;history_note?:string|null;
   field_context?: FieldContext | null;
   detected_disease: string;
@@ -166,6 +254,10 @@ export interface DiseaseDetectionResult {
   status?: string;
   overlay_data_url?: string | null;
   disease_details: {
+    treatment?:string;treatment_mr?:string;
+    management_practices?:Array<{category:string;title:string;title_mr:string;items:string[];items_mr:string[]}>;
+    chemical_references?:Array<{product:string;dosage:string;group:string;verification_status:string}>;
+    reference_note?:string;reference_note_mr?:string;
     pathogen: string;
     symptoms: string;
     symptoms_mr: string;
@@ -181,4 +273,72 @@ export interface DiseaseDetectionResult {
       dose_per_acre: string;
     }>;
   } | null;
+}
+
+export interface VRAProductPrescription {
+  name: string;
+  base_rate_per_acre: number;
+  rate_per_acre: number;
+  total_quantity: number;
+  unit: string;
+  note?: string;
+  note_mr?: string;
+}
+
+export interface VRAZone {
+  id: 'zone_1' | 'zone_2' | 'zone_3' | string;
+  name: string;
+  name_mr?: string;
+  short_name: string;
+  short_name_mr?: string;
+  color: string;
+  badge_color?: string;
+  percentage: number;
+  acres: number;
+  multiplier: number;
+  multiplier_label: string;
+  multiplier_label_mr?: string;
+  canopy_status: string;
+  canopy_status_mr?: string;
+  irrigation_run_hours: number;
+  ai_diagnosis: string;
+  ai_diagnosis_mr?: string;
+  agronomic_action: string;
+  agronomic_action_mr?: string;
+  isolate_btn_label: string;
+  isolate_btn_label_mr?: string;
+  fertilizers: VRAProductPrescription[];
+}
+
+export interface VRAPrescriptionData {
+  status: string;
+  farmer_name?: string;
+  total_acres: number;
+  period: string;
+  stage: string;
+  application_date?: string;
+  is_upcoming_dose_modulation: boolean;
+  upcoming_fertilizers: string[];
+  zones: VRAZone[];
+  impact_summary?: {
+    uniform_total_kg: number;
+    vra_total_kg: number;
+    fertilizer_saved_kg: number;
+    reallocated_to_recovery_kg: number;
+    estimated_savings_inr: number;
+    nitrogen_use_efficiency_gain_pct: number;
+    nitrate_leaching_reduction_pct: number;
+    yield_uniformity_improvement_pct: number;
+  };
+  valve_operation_instructions?: string[];
+}
+
+export interface VraSummary {
+  source_index: string;
+  method: string;
+  disclaimer: string;
+  valid_pixel_count: number;
+  counts: { check: number; monitor: number; strong: number; no_data: number };
+  share_of_valid_pixels_pct: { check: number; monitor: number; strong: number };
+  prescription?: VRAPrescriptionData;
 }

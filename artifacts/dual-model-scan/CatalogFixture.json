@@ -1,0 +1,129 @@
+{
+  "disease_name": "Mosaic",
+  "marathi_name": "मोझॅक (केवडा)",
+  "pathogen": "Sugarcane Mosaic Virus (SCMV)",
+  "severity": "High (Systemic)",
+  "symptoms": "Contrasting pattern of normal dark green and elongated chlorotic pale-green or yellowish patches on younger leaves.",
+  "symptoms_mr": "कोवळ्या पानांवर गर्द हिरव्या आणि फिकट पिवळसर पट्ट्यांचे अनियमित ठिपके/नक्षीदार चट्टे दिसतात.",
+  "causes": "Aphid vectors (Rhopalosiphum maidis), infected seed setts, mechanical transmission through harvesting tools.",
+  "causes_mr": "मावा (ॲफिड) किडींचा प्रादुर्भाव, रोगट बेणे आणि अस्वच्छ कापणी अवजारे.",
+  "prevention": "Use virus-free certified seed setts, rogue out infected stools immediately upon detection, control aphid populations early.",
+  "prevention_mr": "प्रमाणित निरोगी बेण्याचा वापर करा, बाधित बेटे मुळासकट उपटून नष्ट करा, मावा किडीचे वेळेवर नियंत्रण करा.",
+  "chemical_control": "No direct virucide exists. Control aphid vectors using Imidacloprid 17.8% SL @ 0.3 ml/L or Thiamethoxam 25% WG @ 0.2 g/L.",
+  "chemical_control_mr": "व्हायरसवर थेट रासायनिक औषध नाही. वाहक मावा किडींच्या नियंत्रणासाठी इमिडाक्लोप्रिड १७.८% SL (०.३ मिली/लिटर) किंवा थायामेथोक्साम २५% WG (०.२ ग्रॅम/लिटर) फवारावे.",
+  "recommended_products": [
+    {
+      "product_name": "Confidor",
+      "active_ingredient": "Imidacloprid 17.8% SL",
+      "dose_per_acre": "60-80 ml in 200 L water",
+      "application_method": "Foliar Spray"
+    },
+    {
+      "product_name": "Actara",
+      "active_ingredient": "Thiamethoxam 25% WG",
+      "dose_per_acre": "40-50 g in 200 L water",
+      "application_method": "Foliar Spray"
+    }
+  ],
+  "treatment": "No chemical cure; remove and destroy infected plants, control vector insects",
+  "treatment_mr": "रासायनिक उपचार नाही; बाधित रोपे काढून नष्ट करा, वाहक कीटक नियंत्रित करा",
+  "management_practices": [
+    {
+      "category": "cultural",
+      "title": "Cultural practices",
+      "title_mr": "मशागतीच्या पद्धती",
+      "items": [
+        "Use only certified, disease-free seed canes",
+        "Do not grow maize, sorghum, or millet near sugarcane (Aug-Nov)",
+        "Keep field clean from wild grasses"
+      ],
+      "items_mr": [
+        "फक्त प्रमाणित, रोगमुक्त बेणे वापरा",
+        "ऊसाजवळ मका, ज्वारी किंवा बाजरी लावू नका (ऑगस्ट-नोव्हेंबर)",
+        "शेत रानटी गवतापासून स्वच्छ ठेवा"
+      ]
+    },
+    {
+      "category": "mechanical",
+      "title": "Mechanical practices",
+      "title_mr": "यांत्रिक उपाय",
+      "items": [
+        "Remove infected plants with roots and bury them",
+        "Clean tools with boiling water or disinfectant before use in other fields"
+      ],
+      "items_mr": [
+        "संक्रमित रोपे मुळांसह काढून पुरून टाका",
+        "इतर शेतात वापरण्यापूर्वी उकळत्या पाण्याने किंवा जंतुनाशकाने साधने स्वच्छ करा"
+      ]
+    },
+    {
+      "category": "biological",
+      "title": "Biological practices",
+      "title_mr": "जैविक उपाय",
+      "items": [
+        "Use tissue culture plants (virus-free)",
+        "Protect ladybugs and lacewings by avoiding heavy chemical sprays"
+      ],
+      "items_mr": [
+        "ऊतक संवर्धन रोपे (विषाणूमुक्त) वापरा",
+        "जड रासायनिक फवारण्या टाळून लेडीबग आणि लेसविंग यांचे संरक्षण करा"
+      ]
+    },
+    {
+      "category": "chemical",
+      "title": "Chemical practices · supplied reference",
+      "title_mr": "रासायनिक उपाय · पुरवलेला संदर्भ",
+      "items": [
+        "Imidacloprid: 40 ml/acre in 200 L water (long protection)",
+        "Dimethoate: 300 ml/acre in 200 L water (quick aphid control)"
+      ],
+      "items_mr": [
+        "इमिडाक्लोप्रिड: 40 मिली/एकर 200 लिटर पाण्यात (दीर्घ संरक्षण)",
+        "डायमेथोएट: 300 मिली/एकर 200 लिटर पाण्यात (जलद मावा नियंत्रण)"
+      ]
+    },
+    {
+      "category": "timing",
+      "title": "Spray timing · field review required",
+      "title_mr": "फवारणीची वेळ · शेतातील पडताळणी आवश्यक",
+      "items": [
+        "Start in Aug-Nov when aphids or mosaic symptoms appear",
+        "Spray whole plant, especially underside of leaves and inside canopy",
+        "Spray early morning (6-9 AM) or evening (4:30-6:30 PM)"
+      ],
+      "items_mr": [
+        "ऑगस्ट-नोव्हेंबरमध्ये मावा किंवा मोझॅक लक्षणे दिसताच सुरू करा",
+        "संपूर्ण रोप, विशेषतः पानांची खालची बाजू आणि छताच्या आत फवारा",
+        "सकाळी लवकर (6-9 AM) किंवा संध्याकाळी (4:30-6:30 PM)"
+      ]
+    }
+  ],
+  "chemical_references": [
+    {
+      "product": "Imidacloprid 17.8 SL",
+      "dosage": "0.5 ml/L",
+      "group": "IRAC 4A, ICAR",
+      "verification_status": "supplied_reference_not_label_verified"
+    },
+    {
+      "product": "Dinotefuran 20 SG",
+      "dosage": "0.4 g/L",
+      "group": "IRAC 4A, ICAR",
+      "verification_status": "supplied_reference_not_label_verified"
+    },
+    {
+      "product": "Thiamethoxam 25 WG",
+      "dosage": "0.5 g/L",
+      "group": "IRAC 4A",
+      "verification_status": "supplied_reference_not_label_verified"
+    },
+    {
+      "product": "Flonicamid 50 WG",
+      "dosage": "0.3-0.4 g/L",
+      "group": "IRAC 29",
+      "verification_status": "supplied_reference_not_label_verified"
+    }
+  ],
+  "reference_note": "Supplied P-D team reference, not a verified product label or an automatic spray instruction. Verify crop/pest registration, formulation, dose, protective equipment and local weather with a qualified agronomist. Chemical and biological reference values may use different formulations; do not combine them. Mosaic has no chemical cure; vector control is distinct from treating the virus.",
+  "reference_note_mr": "हे P-D संघाने पुरवलेले संदर्भ आहेत; पडताळलेले उत्पादन लेबल किंवा आपोआप फवारणीचा आदेश नाही. पीक-किडीची नोंदणी, फॉर्म्युलेशन, मात्रा, संरक्षक साधने व स्थानिक हवामान कृषितज्ज्ञांसोबत तपासा. वेगवेगळ्या संदर्भातील मात्रा एकत्र करू नका. मोझॅक विषाणूवर रासायनिक उपचार नाही; वाहक नियंत्रण ही वेगळी बाब आहे."
+}

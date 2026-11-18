@@ -101,8 +101,9 @@ android {
         applicationId 'org.aiadt.smartfarmer.v2'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "2.0.0"
+        manifestPlaceholders = [adtCleartextTraffic: (System.getenv('ADT_BUILD_PROFILE') == 'production' ? 'false' : 'true')]
+        versionCode 4
+        versionName "2.1.0"
     }
     signingConfigs {
         debug {

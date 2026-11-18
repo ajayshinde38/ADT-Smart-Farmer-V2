@@ -95,6 +95,10 @@ def test_cross_farm_scan_is_rejected_before_inference(monkeypatch):
 
 
 def test_bound_scan_runs_in_worker_and_survives_missing_gis(monkeypatch):
+    async def no_saved(*args): return None
+    async def saved(*args,**kwargs): return kwargs['identifier']
+    monkeypatch.setattr('app.modules.pest_disease.history.saved_scan',no_saved)
+    monkeypatch.setattr('app.modules.pest_disease.history.save_scan',saved)
     farm = {'farm_id':FARM,'farmer_id':OWNER}
     monkeypatch.setattr('app.farmers.service.get_farm_by_id',lambda _:farm)
     monkeypatch.setattr('app.modules.weather.service.get_cached_farm_weather',lambda _:None)

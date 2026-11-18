@@ -36,7 +36,7 @@ def resolve_crop_context(farm, today=None):
     stage = aliases.get(str(farm.get('growth_stage') or '').strip().lower())
     source = 'recorded' if stage else 'unknown'
     if stage is None and age is not None:
-        stage = 'Sprouting' if age <= 45 else 'Tillering' if age <= 120 else 'Grand Growth' if age <= 270 else 'Maturity'
+        stage = 'Sprouting' if age <= 45 else 'Tillering' if age <= 120 else 'Grand Growth' if age <= 270 else 'Maturity' if age <= 360 else 'Harvest Ready'
         source = 'planting_date_estimate'
     return {'stage': stage, 'stage_source': source, 'plantation_date': str(planted) if planted else None, 'age_days': age}
 

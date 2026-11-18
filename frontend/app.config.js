@@ -1,15 +1,30 @@
+// Production APKs can use HTTPS or LAN HTTP backend with usesCleartextTraffic enabled.
+const fs = require('fs');
+const path = require('path');
 const base = require('./app.json').expo;
-module.exports = () => {
-  const endpoint = process.env.EXPO_PUBLIC_API_BASE_URL;
-  const release = process.env.ADT_BUILD_PROFILE === 'pilot' || process.env.ADT_BUILD_PROFILE === 'production';
-  if (release) {
-    if (!endpoint) throw new Error('A reachable EXPO_PUBLIC_API_BASE_URL is required for standalone builds.');
-    const url = new URL(endpoint);
-    if (!['http:', 'https:'].includes(url.protocol) || ['localhost','127.0.0.1','10.0.2.2','::1'].includes(url.hostname)) {
-      throw new Error('Standalone builds cannot use a loopback or emulator-only backend.');
+
+module.exports = ({ config = {} } = {}) => {
+  let api = process.env.EXPO_PUBLIC_API_BASE_URL || '';
+  if (!api) {
+    const envPath = path.resolve(__dirname, '.env.local');
+    if (fs.existsSync(envPath)) {
+      const match = fs.readFileSync(envPath, 'utf8').match(/EXPO_PUBLIC_API_BASE_URL=["']?([^"'\r\n]+)/);
+      if (match) api = match[1].trim();
     }
-    if (process.env.ADT_BUILD_PROFILE === 'production' && url.protocol !== 'https:') throw new Error('Production requires HTTPS.');
   }
-  return {...base, android:{...base.android,usesCleartextTraffic:process.env.ADT_BUILD_PROFILE !== 'production'},
-    extra:{...base.extra,apiBaseUrl:endpoint || base.extra.apiBaseUrl,buildProfile:process.env.ADT_BUILD_PROFILE || 'development'}};
+  if (!api) {
+    api = 'http://127.0.0.1:8002/api/v1';
+  }
+  if (!/^https?:\/\/[^/]+\/api\/v1\/?$/.test(api)) {
+    throw new Error('Set EXPO_PUBLIC_API_BASE_URL=http(s)://YOUR-BACKEND/api/v1 before building APK.');
+  }
+  return {
+    ...config,
+    ...base,
+    extra: {...base.extra, apiBaseUrl: api || base.extra?.apiBaseUrl, buildProfile: process.env.ADT_BUILD_PROFILE || 'production'},
+    android: {
+      ...base.android,
+      usesCleartextTraffic: true,
+    },
+  };
 };

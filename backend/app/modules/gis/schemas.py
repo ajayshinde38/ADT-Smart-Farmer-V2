@@ -11,6 +11,8 @@ class VegetationIndices(BaseModel):
     msavi: Optional[float] = Field(None, description="Modified Soil Adjusted Vegetation Index")
     ndmi: Optional[float] = Field(None, description="Normalized Difference Moisture Index")
     ndwi: Optional[float] = Field(None, description="Normalized Difference Water Index")
+    rvi: Optional[float] = Field(None, description="Sentinel-1 SAR Radar Vegetation Index (0.0 to 1.0)")
+    vra: Optional[float] = Field(None, description="VRA Composite Vigor: 0.35*NDVI + 0.35*NDRE + 0.30*RVI")
     capture_date: Optional[date] = None
     cloud_coverage_pct: Optional[float] = None
 
@@ -32,6 +34,10 @@ class RasterOverlayInfo(BaseModel):
     scene_id: Optional[str] = None
     acquisition_date: Optional[str] = None
     resolution_meters: Optional[float] = None
+    composite_start_date: Optional[str] = None
+    composite_end_date: Optional[str] = None
+    valid_pixel_coverage_pct: Optional[float] = None
+    coverage_by_index: Optional[Dict[str, float]] = None
     bounds: Optional[List[List[float]]] = None  # [[south, west], [north, east]]
     overlay_urls: Optional[Dict[str, str]] = None
     geotiff_path: Optional[str] = None

@@ -103,6 +103,17 @@ def compute_gdd(temp_max_c: float, temp_min_c: float, base_temp_c: float = SUGAR
     return round(max(0.0, mean_temp - base_temp_c), 1)
 
 
+def compute_effective_rainfall(rainfall_mm: float) -> float:
+    """
+    FAO-56 / USDA Soil Conservation Service (SCS) daily effective rainfall:
+    - Rain <= 1.0 mm is completely lost to canopy interception and surface evaporation.
+    - Rain > 1.0 mm: ~80% infiltrates into the root zone and replaces irrigation demand.
+    """
+    if rainfall_mm <= 1.0:
+        return 0.0
+    return round(rainfall_mm * EFFECTIVE_RAINFALL_FRACTION, 2)
+
+
 def compute_irrigation_requirement(
     et0_mm: float,
     crop_stage: str,
@@ -115,7 +126,8 @@ def compute_irrigation_requirement(
     """
     Deterministic FAO-56 irrigation requirement calculation:
       ETc (mm/day) = ET0 * Kc
-      Water Required (L) = ETc * Area (m2)
+      Net Irrigation (mm/day) = max(0, ETc - Effective Rainfall)
+      Water Required (L) = Net Depth (mm) * Area (m2) [1 mm = 1 L/m2]
       Pump Capacity (L/hr) = Discharge (L/s) * 3600
       Irrigation Time (hr) = Water Required / Pump Capacity
     """
@@ -125,10 +137,10 @@ def compute_irrigation_requirement(
     
     effective_rain_daily = 0.0
     if subtract_rainfall and rainfall_today_mm is not None:
-        effective_rain_daily = round(max(0.0, rainfall_today_mm) * EFFECTIVE_RAINFALL_FRACTION, 2)
+        effective_rain_daily = compute_effective_rainfall(rainfall_today_mm)
         net_mm = max(0.0, round(etc_mm_day - effective_rain_daily, 2))
     elif subtract_rainfall and rainfall_week_mm > 0:
-        effective_rain_daily = round((rainfall_week_mm * EFFECTIVE_RAINFALL_FRACTION) / 7.0, 2)
+        effective_rain_daily = compute_effective_rainfall(rainfall_week_mm / 7.0)
         net_mm = max(0.0, round(etc_mm_day - effective_rain_daily, 2))
 
     water_required_liters = round(net_mm * field_area_m2, 1)

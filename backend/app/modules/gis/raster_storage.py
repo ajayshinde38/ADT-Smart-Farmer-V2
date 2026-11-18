@@ -577,7 +577,15 @@ async def save_genuine_raster_persistently(
                 "source": "copernicus_process",
                 "acquisition_date": day.isoformat(),
                 "bounds": metadata["bounds"],
-                "resolution_meters": 10.0,
+                "resolution_meters": metadata.get("resolution_meters", 10.0),
+                "composite_start_date": metadata.get("composite_start_date"),
+                "composite_end_date": metadata.get("composite_end_date"),
+                "valid_pixel_coverage_pct": metadata.get("valid_pixel_coverage_pct"),
+                "coverage_by_index": {
+                    **(existing.get("coverage_by_index", {}) if previous_paths and isinstance(existing.get("coverage_by_index"), dict) else {}),
+                    index: metadata.get("valid_pixel_coverage_pct"),
+                },
+                "raster_schema_version": metadata.get("raster_schema_version", 2),
                 "overlay_paths": {
                     **previous_paths,
                     index: raster_path,

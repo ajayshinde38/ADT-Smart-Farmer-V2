@@ -7,9 +7,13 @@ import {
   DiseaseDetectionResult,
   DashboardData,
   HistoryData,
+  VraSummary,
+  VRAPrescriptionData,
+  FertigationScheduleData,
 } from '../types';
 
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 // Supported genuine Sentinel-2 vegetation and moisture indices.
 export type GISRasterIndex =
@@ -18,43 +22,72 @@ export type GISRasterIndex =
   | 'ndre'
   | 'msavi'
   | 'ndmi'
-  | 'ndwi';
+  | 'ndwi'
+  | 'vra';
+
+const getMetroHost = (): string | null => {
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    (Constants as any).manifest?.debuggerHost ||
+    (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
+  if (hostUri) {
+    return hostUri.split(':')[0];
+  }
+  return null;
+};
 
 // Resolve the configured API URL for Web and Android.
 const getBaseUrl = (): string => {
-  const configured = process.env.EXPO_PUBLIC_API_BASE_URL;
-
-  if (configured && /^https?:\/\//.test(configured)) {
-    return configured.replace(/\/$/, '');
-  }
+  const configured = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
 
   if (Platform.OS === 'web') {
+    // In web browser, always route to port 8002 on the same host the browser is viewing
     if (
       typeof window !== 'undefined' &&
       window.location &&
       typeof window.location.origin === 'string' &&
       window.location.origin.startsWith('http')
     ) {
+      // If running from Expo Metro dev server (8081 / 19006), route to FastAPI on port 8002 of the same host
+      if (window.location.port === '8081' || window.location.port === '19006') {
+        return `${window.location.protocol}//${window.location.hostname}:8002/api/v1`;
+      }
+      // Served directly by FastAPI (port 8002 locally or standard HTTPS/HTTP port in cloud production)
       return `${window.location.origin}/api/v1`;
     }
+    if (configured && /^https?:\/\//.test(configured)) {
+      return configured.replace(/\/$/, '');
+    }
+    return 'http://127.0.0.1:8002/api/v1';
+  }
 
-    return 'http://127.0.0.1:8000/api/v1';
+  // Mobile (Android / iOS)
+  const metroHost = getMetroHost();
+  if (configured && /^https?:\/\//.test(configured)) {
+    // If configured with loopback or 127.0.0.1 on mobile, route to the host machine
+    if (/https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(configured)) {
+      if (metroHost) {
+        return configured.replace(/https?:\/\/(localhost|127\.0\.0\.1)/i, `http://${metroHost}`).replace(/\/$/, '');
+      }
+      if (Platform.OS === 'android') {
+        return configured.replace(/https?:\/\/(localhost|127\.0\.0\.1)/i, 'http://10.0.2.2').replace(/\/$/, '');
+      }
+    }
+    return configured.replace(/\/$/, '');
+  }
+
+  if (metroHost) {
+    return `http://${metroHost}:8002/api/v1`;
   }
 
   if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:8000/api/v1';
+    return 'http://10.0.2.2:8002/api/v1';
   }
 
-  return 'http://127.0.0.1:8000/api/v1';
+  return 'http://127.0.0.1:8002/api/v1';
 };
 
-
-export const API_BASE_URL =
-  Platform.OS === 'web' &&
-    typeof window !== 'undefined' &&
-    window.location.port === '8002'
-    ? `${window.location.origin}/api/v1`
-    : getBaseUrl();
+export const API_BASE_URL = getBaseUrl();
 
 export const getMapServerOrigin = () =>
   new URL(API_BASE_URL).origin;
@@ -77,13 +110,14 @@ export class ApiClient {
     options: RequestInit = {},
     token: string | null = this.token
   ): Promise<T> {
+    const isForm =
+      options.body instanceof FormData ||
+      (options.body && typeof (options.body as any).append === 'function') ||
+      Boolean((options.body as any)?._parts);
+
     const headers: Record<string, string> = {
-      ...(options.body instanceof FormData
-        ? {}
-        : { 'Content-Type': 'application/json' }),
-      ...(token
-        ? { Authorization: `Bearer ${token}` }
-        : {}),
+      ...(isForm ? {} : { 'Content-Type': 'application/json' }),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
 
     const response = await fetch(API_BASE_URL + path, {
@@ -101,12 +135,17 @@ export class ApiClient {
       }
 
       const error = await response.json().catch(() => ({}));
+      let errorMessage = response.status >= 500 && path === '/pest-disease/detect'
+        ? 'The scan service could not complete this photo. Your photo is kept; retry shortly.'
+        : 'Request failed. Please try again.';
+      if (typeof error.detail === 'string') {
+        errorMessage = error.detail;
+      } else if (Array.isArray(error.detail) && error.detail.length > 0) {
+        errorMessage = error.detail.map((d: any) => d.msg || JSON.stringify(d)).join('; ');
+      }
+      console.warn('API error:', response.status, errorMessage, error);
 
-      throw new Error(
-        typeof error.detail === 'string'
-          ? error.detail
-          : 'Request failed. Please try again.'
-      );
+      throw new Error(errorMessage);
     }
 
     return response.json();
@@ -203,6 +242,16 @@ export class ApiClient {
     );
   }
 
+  // Returns NDVI-derived relative vigor zones with 3-zone precision prescription
+  static getVraSummary(farmId: string) {
+    return this.request<VraSummary>(`/gis/plot/${farmId}/vra/summary`);
+  }
+
+  // Returns FertiNex 3-zone precision prescription directly
+  static getVraPrescription(farmId: string) {
+    return this.request<VRAPrescriptionData>(`/gis/plot/${farmId}/vra/prescription`);
+  }
+
   // Generate ONE genuine spatial satellite layer.
   //
   // This uses the currently authenticated farmer token.
@@ -225,6 +274,7 @@ export class ApiClient {
       'msavi',
       'ndmi',
       'ndwi',
+      'vra',
     ];
 
     if (!supported.includes(index)) {
@@ -294,6 +344,10 @@ export class ApiClient {
     }
   }
 
+  static getDiseaseDetail(name: string) {
+    return this.request<NonNullable<DiseaseDetectionResult['disease_details']>>('/pest-disease/catalog/'+encodeURIComponent(name));
+  }
+
   static getScanHistory(id: string) {
     return this.request<HistoryData>(
       `/pest-disease/history/${id}`
@@ -325,6 +379,42 @@ export class ApiClient {
           unit,
         }),
       }
+    );
+  }
+
+  static fertilizerPlan(id: string, applied: Record<string, number>, cycle?: {crop_season?:string;plantation_date?:string}) {
+    return this.request<AdvisoryData>(`/advisory/farm/${id}/plan`, {
+      method: 'POST', body: JSON.stringify({applied_till_date: applied,...cycle}),
+    });
+  }
+
+  static getFertigationSchedule(farmId: string) {
+    return this.request<FertigationScheduleData>(`/advisory/farm/${farmId}/schedule`);
+  }
+
+  static getScanAnalysis(farmId:string,recordId:string) {
+    return this.request<{available:boolean;analysis:DiseaseDetectionResult|null;reason:string|null}>(
+      `/pest-disease/history/${farmId}/analysis/${recordId}`);
+  }
+
+  static confirmScheduleDose(
+    farmId: string,
+    period: string,
+    applied: boolean,
+    notes?: string
+  ) {
+    return this.request<{ status: string; record: any; schedule: FertigationScheduleData }>(
+      `/advisory/farm/${farmId}/schedule/confirm`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ period, applied, notes }),
+      }
+    );
+  }
+
+  static getScheduleCompliance(farmId: string) {
+    return this.request<{ by_period: Record<string, any> }>(
+      `/advisory/farm/${farmId}/schedule/compliance`
     );
   }
 

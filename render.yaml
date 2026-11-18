@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: adt-smart-farmer-v2
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    region: singapore
+    plan: starter
+    numInstances: 1
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: OPEN_METEO_API_KEY
+        sync: false
+      - key: CDSE_CLIENT_ID
+        sync: false
+      - key: CDSE_CLIENT_SECRET
+        sync: false
+      - key: MODEL_UNET_URL
+        sync: false
+      - key: MODEL_EFFICIENTNET_URL
+        sync: false

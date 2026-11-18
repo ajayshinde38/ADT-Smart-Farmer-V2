@@ -53,6 +53,7 @@ async function main(){
   assert.equal(real.state.requests[0].options.headers.Authorization,'Bearer test-only-token');
   assert.equal(real.state.requests[0].url,`http://127.0.0.1:8000/api/v1/gis/plot/${farm}/raster/ndvi.png`);
   assert.equal(real.state.polygons[0].options.fillOpacity,0);
+  assert.equal(real.state.images[0].image.style.imageRendering,'auto');
   assert(real.state.images[0].image.style.clipPath.startsWith('polygon(0% 0%,100% 0%'));
   real.window.updateFarmMap({...payload,activeIndex:'ndmi'});await tick();
   assert.equal(real.state.fits,1,'Changing a layer must preserve the farmer’s zoom/pan');
@@ -62,6 +63,16 @@ async function main(){
   real.window.controlFarmMap('in');assert.equal(real.state.zoom,1);
   real.window.updateFarmMap({...payload,overlayVisible:false});await tick();
   assert.equal(real.state.requests.length,2,'Photo-only comparison must not fetch a new raster');
+
+  for(const key of ['ndvi','evi','ndre','msavi','ndmi','ndwi','vra']){
+    const map=harness();
+    map.window.updateFarmMap({...payload,activeIndex:key,mode:key==='vra'?'V':'B',rasterInfo:{...payload.rasterInfo,overlay_urls:{[key]:`/api/v1/gis/plot/${farm}/raster/${key}.png`}}});
+    await tick();
+    assert.equal(map.state.images.length,1,`${key} must render`);
+    assert.equal(map.state.images[0].image.style.imageRendering,'auto');
+    assert.deepEqual(map.state.images[0].bounds,payload.rasterInfo.bounds);
+    assert(map.state.images[0].image.style.clipPath.startsWith('polygon('));
+  }
 
   const average=harness();
   average.window.updateFarmMap({...payload,mode:'A'});

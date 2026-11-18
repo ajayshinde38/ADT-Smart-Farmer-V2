@@ -1,5 +1,5 @@
 from typing import Dict, Any, List
-from app.modules.pest_disease.schemas import DiseaseDetail, ChemicalProduct
+from app.modules.pest_disease.schemas import DiseaseDetail, ChemicalProduct, ManagementPractice, ChemicalReference
 
 DISEASE_CATALOG: Dict[str, DiseaseDetail] = {
     "Brown Rust": DiseaseDetail(
@@ -81,3 +81,23 @@ DISEASE_CATALOG: Dict[str, DiseaseDetail] = {
         ]
     )
 }
+
+# Keep the supplied team's management content separate from model inference.
+import json
+from pathlib import Path
+_reference=json.loads(Path(__file__).with_name('team_reference.json').read_text(encoding='utf-8'))
+_categories=[('cultural','Cultural practices','मशागतीच्या पद्धती'),
+    ('mechanical','Mechanical practices','यांत्रिक उपाय'),('biological','Biological practices','जैविक उपाय'),
+    ('chemical','Chemical practices · supplied reference','रासायनिक उपाय · पुरवलेला संदर्भ'),
+    ('timing','Spray timing · field review required','फवारणीची वेळ · शेतातील पडताळणी आवश्यक')]
+for _name,_detail in DISEASE_CATALOG.items():
+    _en=_reference['DISEASE_INFO'][_name]
+    _mr=_reference['DISEASE_INFO_MR'][_name]
+    _detail.treatment=_en['treatment']
+    _detail.treatment_mr=_mr.get('treatment','')
+    _detail.management_practices=[ManagementPractice(category=key,title=en,title_mr=mr,
+        items=_reference['DISEASE_PRACTICES'][_name].get(key,[]),
+        items_mr=_reference['DISEASE_PRACTICES_MR'][_name].get(key,[])) for key,en,mr in _categories]
+    _detail.chemical_references=[ChemicalReference(**row) for row in _reference['CHEMICAL_REFERENCE'].get(_name,[])]
+    _detail.reference_note='Supplied P-D team reference, not a verified product label or an automatic spray instruction. Verify crop/pest registration, formulation, dose, protective equipment and local weather with a qualified agronomist. Chemical and biological reference values may use different formulations; do not combine them. Mosaic has no chemical cure; vector control is distinct from treating the virus.'
+    _detail.reference_note_mr='हे P-D संघाने पुरवलेले संदर्भ आहेत; पडताळलेले उत्पादन लेबल किंवा आपोआप फवारणीचा आदेश नाही. पीक-किडीची नोंदणी, फॉर्म्युलेशन, मात्रा, संरक्षक साधने व स्थानिक हवामान कृषितज्ज्ञांसोबत तपासा. वेगवेगळ्या संदर्भातील मात्रा एकत्र करू नका. मोझॅक विषाणूवर रासायनिक उपचार नाही; वाहक नियंत्रण ही वेगळी बाब आहे.'

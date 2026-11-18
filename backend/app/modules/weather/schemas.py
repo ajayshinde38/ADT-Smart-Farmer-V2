@@ -32,6 +32,8 @@ class DailyWeatherForecast(BaseModel):
     weather_condition: str
     weather_icon: str
     precipitation_probability: float = 0.0
+    water_demand_liters: Optional[float] = None
+    etc_mm: Optional[float] = None
 
 
 class IrrigationAdvisory(BaseModel):
@@ -66,11 +68,15 @@ class WeatherOverviewResponse(BaseModel):
     forecast_7d_gdd: float = 0.0
     cumulative_gdd: float = 0.0  # Kept for backward compatibility (matches forecast_7d_gdd)
     cumulative_gdd_since_planting: Optional[float] = None
+    planting_age_days: Optional[int] = None
+    farm_area_acres: Optional[float] = None
+    farm_area_m2: Optional[float] = None
     plantation_date: Optional[str] = None
     et0_source: str = "Open-Meteo FAO-56 NWP (Authoritative)"
     irrigation: IrrigationAdvisory
     hourly_forecast: List[HourlyWeatherForecast] = []
     forecast_7_day: List[DailyWeatherForecast] = []
+    past_7_day: List[DailyWeatherForecast] = []
     
     crop_watch: List[Dict[str, Any]] = []
     crop_watch_outlook: List[Dict[str, Any]] = []
@@ -81,6 +87,7 @@ class WeatherOverviewResponse(BaseModel):
     source_type: str = "NWP Forecast Model (Best Match)"
     forecast_timezone: str = "Asia/Kolkata"
     last_updated_utc: str = ""
+    fetched_at_utc: str = ""
     is_cached: bool = False
     cache_expires_in_seconds: int = 900
 

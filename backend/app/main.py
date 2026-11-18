@@ -40,6 +40,18 @@ for h in logging.root.handlers:
 
 logger = logging.getLogger("adt_smart_farmer_v2")
 
+# Fail closed for real deployments. A pilot can still run with dev defaults.
+if settings.ENVIRONMENT.lower() == "production":
+    if (settings.JWT_SECRET == "adt-smart-farmer-v2-dev-secret-key-change-in-production"
+            or len(settings.JWT_SECRET) < 32):
+        raise RuntimeError("Production requires a strong unique JWT_SECRET.")
+    if settings.DEBUG:
+        raise RuntimeError("Set DEBUG=false in production.")
+    if "*" in settings.CORS_ORIGINS:
+        raise RuntimeError("Set explicit HTTPS CORS_ORIGINS in production.")
+    if not settings.SUPABASE_SECRET_KEY or not settings.SUPABASE_URL.startswith("https://"):
+        raise RuntimeError("Production requires private Supabase credentials and HTTPS.")
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
@@ -102,6 +114,21 @@ def health_check():
         },
         "authoritative_farmers_loaded": farmer_count
     }
+
+
+# Native Android WebView loads Leaflet from the same trusted backend origin.
+# This must work even before an Expo Web export has been produced.
+@app.get("/map/{asset_name}", include_in_schema=False)
+def native_leaflet_asset(asset_name: str):
+    if asset_name not in {"leaflet.js", "leaflet.css", "LICENSE-Leaflet.txt"}:
+        return JSONResponse(status_code=404, content={"detail": "Not found"})
+    public_asset = Path(__file__).resolve().parents[2] / "frontend" / "public" / "map" / asset_name
+    if not public_asset.is_file():
+        return JSONResponse(status_code=503, content={"detail": "Leaflet map asset missing on server"})
+    return FileResponse(
+        public_asset,
+        headers={"Cache-Control": "public, max-age=86400", "X-Content-Type-Options": "nosniff"},
+    )
 
 
 # Mount Expo static web distribution for production single-port delivery
