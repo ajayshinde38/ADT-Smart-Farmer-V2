@@ -1,3 +1,13 @@
+---
+title: ADT Smart Farmer V2
+emoji: 🌱
+colorFrom: green
+colorTo: emerald
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # ADT Smart Farmer V2 — Precision Agriculture Platform
 
 An end-to-end agricultural intelligence platform integrating **Sentinel-2 & SAR satellite remote sensing (7 GIS maps including VRA)**, **FAO-56 microclimate analytics**, **Dual-Model AI Sugarcane Pest & Disease Detection (UNet + EfficientNet-B0)**, **FertiNex DAP-based STCR fertigation scheduling**, and an **Admin Management Workspace** — with full **English & Marathi (मराठी)** bilingual support.

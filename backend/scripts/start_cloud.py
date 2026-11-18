@@ -73,5 +73,5 @@ def ensure_models() -> None:
 
 if __name__ == "__main__":
     ensure_models()
-    port = int(os.environ.get("PORT", "8002"))
+    port = int(os.environ.get("PORT", "7860"))
     uvicorn.run("app.main:app", host="0.0.0.0", port=port, workers=1)
