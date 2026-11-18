@@ -24,10 +24,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Install CPU-only PyTorch first to keep container lightweight and fast
+# Install CPU-only PyTorch (supports both x86_64 and Oracle Cloud ARM64/aarch64)
 COPY backend/requirements.txt ./backend/requirements.txt
 RUN python -m pip install --upgrade pip \
-    && python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu \
+    && if [ "$(uname -m)" = "x86_64" ]; then \
+         python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu; \
+       else \
+         python -m pip install torch torchvision; \
+       fi \
     && grep -Ev '^(torch|torchvision|pytest)\b' backend/requirements.txt > /tmp/req-cloud.txt \
     && python -m pip install -r /tmp/req-cloud.txt \
     && rm -f /tmp/req-cloud.txt

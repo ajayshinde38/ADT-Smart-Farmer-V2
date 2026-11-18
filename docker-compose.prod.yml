@@ -1,0 +1,40 @@
+services:
+  adt-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: adt-smart-farmer-v2
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - PORT=8002
+    volumes:
+      - adt_models:/app/backend/app/modules/pest_disease/models
+      - adt_cache:/app/backend/.cache
+    expose:
+      - "8002"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: adt-caddy-https
+    restart: unless-stopped
+    depends_on:
+      - adt-app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - APP_DOMAIN=${APP_DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  adt_models:
+  adt_cache:
+  caddy_data:
+  caddy_config:
