@@ -8,9 +8,11 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - ENVIRONMENT=production
-      - DEBUG=false
+      - ENVIRONMENT=development
+      - DEBUG=true
       - PORT=8002
+      - SERVE_STATIC_WEB=true
+      - STATIC_WEB_DIR=/app/frontend/dist
     volumes:
       - adt_models:/app/backend/app/modules/pest_disease/models
       - adt_cache:/app/backend/.cache
