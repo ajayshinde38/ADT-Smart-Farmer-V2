@@ -41,24 +41,22 @@ const getBaseUrl = (): string => {
   const configured = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
 
   if (Platform.OS === 'web') {
-    // The single-server LAN app serves both the UI and API on port 8002.
-    // Prefer that origin even if an older build setting still names port 8000.
-    if (typeof window !== 'undefined' && window.location?.port === '8002') {
-      return `${window.location.origin}/api/v1`;
-    }
-    if (configured && /^https?:\/\//.test(configured)) {
-      return configured.replace(/\/$/, '');
-    }
+    // In web browser, always route to port 8002 on the same host the browser is viewing
     if (
       typeof window !== 'undefined' &&
       window.location &&
       typeof window.location.origin === 'string' &&
       window.location.origin.startsWith('http')
     ) {
+      // If running from Expo Metro dev server (8081 / 19006), route to FastAPI on port 8002 of the same host
       if (window.location.port === '8081' || window.location.port === '19006') {
         return `${window.location.protocol}//${window.location.hostname}:8002/api/v1`;
       }
+      // Served directly by FastAPI (port 8002 locally or standard HTTPS/HTTP port in cloud production)
       return `${window.location.origin}/api/v1`;
+    }
+    if (configured && /^https?:\/\//.test(configured)) {
+      return configured.replace(/\/$/, '');
     }
     return 'http://127.0.0.1:8002/api/v1';
   }
