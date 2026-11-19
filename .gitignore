@@ -41,6 +41,7 @@ Thumbs.db
 backend/.cache/
 dist-android-check/
 dist-ios-check/
+project_structure.txt
 *.log
 artifacts/final-app-integration/source-before-*.zip
 .private/

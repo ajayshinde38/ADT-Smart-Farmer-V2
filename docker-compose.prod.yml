@@ -16,6 +16,7 @@ services:
     volumes:
       - adt_models:/app/backend/app/modules/pest_disease/models
       - adt_cache:/app/backend/.cache
+      
     expose:
       - "8002"
 

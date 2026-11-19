@@ -1,0 +1,6 @@
+# ==============================================================================
+# ADT Smart Farmer V2 - Root Python Requirements
+# Mirrors backend/requirements.txt for root-level installs and CI/CD pipelines
+# ==============================================================================
+
+-r backend/requirements.txt
