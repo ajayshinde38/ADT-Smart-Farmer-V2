@@ -48,6 +48,23 @@ Download the latest signed Android APK directly from the **GitHub Releases** pag
 
 ---
 
+## Project Technical Requirements
+
+For complete hardware, software, network, database schema, and dependency specifications, see:
+> **[Complete Project Requirements Specification (REQUIREMENTS.md)](REQUIREMENTS.md)**
+
+---
+
+## Local Development & Network Access (Wi-Fi / LAN)
+
+When running on your local network, both services bind to `0.0.0.0` to allow access from any phone, tablet, or PC connected to the same Wi-Fi / Ethernet:
+
+- **Web App (Direct FastAPI SPA)**: `http://<YOUR_LAN_IP>:8002/`
+- **Swagger Interactive API Documentation**: `http://<YOUR_LAN_IP>:8002/docs`
+- **Expo Metro Bundler (Development)**: `http://<YOUR_LAN_IP>:8081/`
+
+---
+
 ## Architecture Overview
 
 ```
