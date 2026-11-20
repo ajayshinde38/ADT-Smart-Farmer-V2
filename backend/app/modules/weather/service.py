@@ -184,13 +184,15 @@ async def fetch_open_meteo(lat: float, lon: float) -> Dict[str, Any]:
             if resp.status_code == 200:
                 logger.info('Open-Meteo forecast retrieved successfully')
                 return resp.json()
-            elif resp.status_code in (401, 403, 429):
-                logger.warning(f"Open-Meteo commercial auth/rate issue (HTTP {resp.status_code}). Triggering public fallback.")
+            else:
+                logger.warning(f"Open-Meteo primary returned HTTP {resp.status_code}. Triggering public fallback.")
                 fallback_params = {k: v for k, v in params.items() if k != "apikey"}
                 fallback_resp = await client.get("https://api.open-meteo.com/v1/forecast", params=fallback_params)
                 if fallback_resp.status_code == 200:
                     logger.info("Open-Meteo public fallback retrieved successfully")
                     return fallback_resp.json()
+                else:
+                    fallback_resp.raise_for_status()
         except Exception as e:
             logger.warning(f"Primary Open-Meteo endpoint error: {_redact_apikey(str(e))}. Attempting public fallback.")
             try:
@@ -199,9 +201,10 @@ async def fetch_open_meteo(lat: float, lon: float) -> Dict[str, Any]:
                 if fallback_resp.status_code == 200:
                     logger.info("Open-Meteo public fallback succeeded after primary failure")
                     return fallback_resp.json()
+                fallback_resp.raise_for_status()
             except Exception as fe:
                 logger.error(f"Open-Meteo fallback failed: {_redact_apikey(str(fe))}")
-            raise
+                raise
 
 
 def _format_time_label(iso_time_str: str, is_now: bool) -> str:
